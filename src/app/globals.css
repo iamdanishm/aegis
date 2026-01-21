@@ -155,3 +155,124 @@
 .leaflet-control-attribution a {
   color: #71717a !important;
 }
+
+/* -------------------------------------------------------------------------- */
+/*                                TACTICAL ANIMATIONS                           */
+/* -------------------------------------------------------------------------- */
+
+@keyframes radar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radar-beam {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+
+  5% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  70% {
+    transform: scale(3);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-fast {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes scan-vertical {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-radar-spin {
+  animation: radar-spin 4s linear infinite;
+}
+
+.animate-radar-beam {
+  animation: radar-beam 4s linear infinite;
+}
+
+.animate-ping-slow {
+  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-pulse-fast {
+  animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-scan-vertical {
+  animation: scan-vertical 8s linear infinite;
+}
+
+/* Glass Panel Utility */
+.glass-panel {
+  background: rgba(9, 9, 11, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(9, 9, 11, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Custom Scrollbar for tactical look */
+.tactical-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.tactical-scrollbar::-webkit-scrollbar-track {
+  background: #18181b;
+}
+
+.tactical-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 2px;
+}
+
+.tactical-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}

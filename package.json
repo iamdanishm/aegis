@@ -12,6 +12,7 @@
     "@google/genai": "^1.38.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.28.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
     "next": "16.1.4",
