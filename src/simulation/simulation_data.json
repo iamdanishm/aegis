@@ -1,0 +1,39 @@
+[
+    {
+        "id": "EVT-001",
+        "trigger_time_offset": 5,
+        "type": "AUDIO",
+        "raw_input": "911... help... water is rising fast... I'm trapped in the basement... water is touching the electrical panel... sparks everywhere...",
+        "location": {
+            "lat": 40.7128,
+            "lng": -74.0060,
+            "address": "123 Flooded St, NYC"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-002",
+        "trigger_time_offset": 15,
+        "type": "VIDEO",
+        "raw_input": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "location": {
+            "lat": 40.7138,
+            "lng": -74.0070,
+            "address": "456 River Rd, NYC"
+        },
+        "status": "PENDING",
+        "description_for_simulation": "A drone shot showing a bridge collapsed with cars submerged."
+    },
+    {
+        "id": "EVT-003",
+        "trigger_time_offset": 30,
+        "type": "TEXT",
+        "raw_input": "Urgent: Multiple people stranded on roof at 789 High Park Ave. Water level approx 10ft. Need evac ASAP.",
+        "location": {
+            "lat": 40.7148,
+            "lng": -74.0080,
+            "address": "789 High Park Ave, NYC"
+        },
+        "status": "PENDING"
+    }
+]
