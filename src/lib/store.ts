@@ -13,6 +13,10 @@ interface SimulationState {
     addIncident: (incident: Incident) => void;
     updateIncident: (id: string, updates: Partial<Incident>) => void;
     addLog: (log: string) => void;
+    isMockMode: boolean;
+    setIsMockMode: (isMockMode: boolean) => void;
+    focusedIncidentId: string | null;
+    setFocusedIncidentId: (id: string | null) => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -37,4 +41,10 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     })),
 
     addLog: (log) => set((state) => ({ logs: [...state.logs, log] })),
+
+    isMockMode: false,
+    setIsMockMode: (isMockMode) => set({ isMockMode }),
+
+    focusedIncidentId: null,
+    setFocusedIncidentId: (focusedIncidentId) => set({ focusedIncidentId }),
 }));

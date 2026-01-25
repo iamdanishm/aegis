@@ -15,10 +15,16 @@ export interface Incident {
     priority?: Priority;
     category?: string;
     reasoning_trace?: string;
+    coordinator_trace?: string;
     thought_signature?: string; // Crypto-audit
     structural_damage?: string; // Surveillance
     flood_level?: string;      // Surveillance
     assigned_assets?: string[]; // Logistics
+    description_for_simulation?: string; // Narrative context
+    people_safety?: string;
+    extracted_address?: string; // Triage
+    extracted_lat?: number;
+    extracted_lng?: number;
 }
 
 export interface AgentResponse {

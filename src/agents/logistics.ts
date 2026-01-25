@@ -1,6 +1,7 @@
 "use server";
 
-import { ai, MODELS } from "@/lib/gemini-client";
+import { ai } from "@/lib/gemini-client";
+import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
 import { Type } from "@google/genai";
 
@@ -14,13 +15,16 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
     You are a Logistics Coordinator for emergency response.
     The incident is located at: ${incident.location.address || "Unknown Location (Lat: " + incident.location.lat + ", Lng: " + incident.location.lng + ")"}.
     Incident Category: ${incident.category || "General Emergency"}.
+    Priority: ${incident.priority || "UNKNOWN"}.
     
     Task:
-    1. Search for current road closures or flooding reports in this specific area (Simulated/Real-time). 
-       (Note: If this is a simulation, treat the search results as current reality).
-    2. Recommend the best asset to deploy (Helicopter, Boat, High-Water Truck).
+    1. Search for current road closures or flooding reports in this specific area using Google Search.
+    2. Recommend the best asset to deploy (Helicopter, Boat, High-Water Truck) based on accessibility.
     
-    Output the deployed asset and a brief routing note.
+    Output a JSON object with:
+    - recommended_asset: The best vehicle for the job.
+    - routing_notes: Explanation of the route and any hazards.
+    - road_status: Summary of road conditions found.
   `;
 
     try {
@@ -29,15 +33,6 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }], // Grounding enabled
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        recommended_asset: { type: Type.STRING },
-                        routing_notes: { type: Type.STRING },
-                        road_status: { type: Type.STRING }
-                    }
-                }
             },
             // Note: Grounding with JSON schema is supported in Gemini 1.5 Pro/Flash and newer.
             // If schema causes issues with Grounding (sometimes it does), we might need to parse text.
@@ -52,7 +47,29 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
 
         const text = response.text || "{}";
         // If Grounding returns text that isn't strict JSON despite schema (edge case), we try catch.
-        const result = JSON.parse(text);
+        let result;
+        try {
+            // Robust JSON parsing: clean markdown code blocks
+            let cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+            // Find the first and last curly braces to isolate the JSON object
+            const firstOpen = cleanText.indexOf('{');
+            const lastClose = cleanText.lastIndexOf('}');
+
+            if (firstOpen !== -1 && lastClose !== -1) {
+                cleanText = cleanText.substring(firstOpen, lastClose + 1);
+                result = JSON.parse(cleanText);
+            } else {
+                // Fallback if no braces found (unlikely with this prompt)
+                throw new Error("No JSON object found in response");
+            }
+        } catch (e) {
+            console.warn("[LOGISTICS] Failed to parse JSON, using fallback text parsing or defaults", text);
+            result = {
+                recommended_asset: "Standard Rescue Boat",
+                routing_notes: text.substring(0, 200), // Keep more text
+                road_status: "Manual check required due to parsing error."
+            };
+        }
 
         return {
             assigned_assets: [result.recommended_asset],

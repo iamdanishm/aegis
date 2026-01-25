@@ -77,8 +77,8 @@ function TacticalMarker({ incident }: { incident: Incident }) {
                     <div className="flex items-center justify-between border-b border-zinc-700/50 pb-2 mb-2">
                         <span className="font-mono text-xs text-zinc-400">{incident.id}</span>
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${incident.priority === "CRITICAL" ? "bg-red-500/10 border-red-500/30 text-red-500" :
-                                incident.priority === "HIGH" ? "bg-orange-500/10 border-orange-500/30 text-orange-500" :
-                                    "bg-zinc-800 border-zinc-700 text-zinc-400"
+                            incident.priority === "HIGH" ? "bg-orange-500/10 border-orange-500/30 text-orange-500" :
+                                "bg-zinc-800 border-zinc-700 text-zinc-400"
                             }`}>
                             {incident.priority || "UNCATEGORIZED"}
                         </span>
@@ -90,6 +90,20 @@ function TacticalMarker({ incident }: { incident: Incident }) {
                             <span className="text-zinc-500">TYPE</span>
                             <span className="text-zinc-200 font-medium text-right">{incident.type}</span>
                         </div>
+                        {incident.category && (
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-zinc-500">CAT</span>
+                                <span className="text-zinc-200 font-medium text-right">{incident.category}</span>
+                            </div>
+                        )}
+                        {incident.people_safety && (
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-zinc-500">SAFETY</span>
+                                <span className={`font-medium text-right ${incident.people_safety.includes("DANGER") ? "text-red-500 font-bold" : "text-zinc-200"}`}>
+                                    {incident.people_safety}
+                                </span>
+                            </div>
+                        )}
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-zinc-500">STATUS</span>
                             <div className="flex items-center gap-1.5">
@@ -131,8 +145,9 @@ export function TacticalMap({ className }: { className?: string }) {
         );
     }
 
-    const center: [number, number] = incidents.length > 0
-        ? [incidents[0].location.lat, incidents[0].location.lng]
+    const firstWithLocation = incidents.find(i => i.location && i.location.lat !== null && i.location.lng !== null);
+    const center: [number, number] = firstWithLocation
+        ? [firstWithLocation.location.lat, firstWithLocation.location.lng]
         : [40.7128, -74.0060];
 
     return (
@@ -169,18 +184,24 @@ export function TacticalMap({ className }: { className?: string }) {
                 zoom={13}
                 zoomControl={false} // Custom zoom control could be added
                 scrollWheelZoom={true}
+                minZoom={3}
+                maxZoom={18}
+                maxBounds={[[-90, -180], [90, 180]]}
+                maxBoundsViscosity={1.0}
                 className="h-full w-full z-0 bg-[#09090b]"
             >
                 <TileLayer
-                    attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
-                    url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 />
 
                 <MapControllerInner incidents={incidents} />
 
-                {incidents.map((incident) => (
-                    <TacticalMarker key={incident.id} incident={incident} />
-                ))}
+                {incidents
+                    .filter(incident => incident.location && incident.location.lat !== null && incident.location.lng !== null)
+                    .map((incident) => (
+                        <TacticalMarker key={incident.id} incident={incident} />
+                    ))}
             </MapContainer>
 
             {/* 3. Radar Sweep Effect (The "Cool" Factor) */}

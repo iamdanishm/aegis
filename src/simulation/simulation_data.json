@@ -1,38 +1,73 @@
 [
     {
-        "id": "EVT-001",
-        "trigger_time_offset": 5,
+        "id": "EVT-AUDIO-001",
+        "trigger_time_offset": 2,
         "type": "AUDIO",
-        "raw_input": "911... help... water is rising fast... I'm trapped in the basement... water is touching the electrical panel... sparks everywhere...",
+        "raw_input": "/Simulation Data/Audios/audio1.mp3",
         "location": {
-            "lat": 40.7128,
-            "lng": -74.0060,
-            "address": "123 Flooded St, NYC"
+            "lat": null,
+            "lng": null,
+            "address": null
         },
         "status": "PENDING"
     },
     {
-        "id": "EVT-002",
-        "trigger_time_offset": 15,
-        "type": "VIDEO",
-        "raw_input": "data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "id": "EVT-AUDIO-002",
+        "trigger_time_offset": 8,
+        "type": "AUDIO",
+        "raw_input": "/Simulation Data/Audios/audio2.mp3",
         "location": {
-            "lat": 40.7138,
-            "lng": -74.0070,
-            "address": "456 River Rd, NYC"
+            "lat": 40.7128,
+            "lng": -74.0060,
+            "address": "Manhattan, New York, USA"
         },
-        "status": "PENDING",
-        "description_for_simulation": "A drone shot showing a bridge collapsed with cars submerged."
+        "status": "PENDING"
     },
     {
-        "id": "EVT-003",
-        "trigger_time_offset": 30,
-        "type": "TEXT",
-        "raw_input": "Urgent: Multiple people stranded on roof at 789 High Park Ave. Water level approx 10ft. Need evac ASAP.",
+        "id": "EVT-VIDEO-001",
+        "trigger_time_offset": 15,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v1.mp4",
         "location": {
-            "lat": 40.7148,
-            "lng": -74.0080,
-            "address": "789 High Park Ave, NYC"
+            "lat": 19.0760,
+            "lng": 72.8777,
+            "address": "Marine Drive, Mumbai, India"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VIDEO-002",
+        "trigger_time_offset": 22,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v2.mov",
+        "location": {
+            "lat": 43.6532,
+            "lng": -79.3832,
+            "address": "Downtown Toronto, Canada"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VIDEO-003",
+        "trigger_time_offset": 30,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v3.mov",
+        "location": {
+            "lat": 51.5074,
+            "lng": -0.1278,
+            "address": "Westminster, London, UK"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VIDEO-004",
+        "trigger_time_offset": 38,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v4.mp4",
+        "location": {
+            "lat": 35.6762,
+            "lng": 139.6503,
+            "address": "Shibuya, Tokyo, Japan"
         },
         "status": "PENDING"
     }

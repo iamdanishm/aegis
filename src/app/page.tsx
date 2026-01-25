@@ -77,7 +77,7 @@ export default function ResponderView() {
               PROJECT AEGIS
               <span className="px-1.5 py-0.5 rounded text-[9px] bg-white/10 text-zinc-400 font-mono border border-white/5">V2.0-ALPHA</span>
             </h1>
-            <p className="text-[10px] text-zinc-500 font-mono tracking-[0.2em] uppercase">Autonomous Emergency Grid Interface System</p>
+            <p className="text-[10px] text-zinc-500 font-mono tracking-[0.2em] uppercase">Autonomous Civilian-to-Command Response System</p>
           </div>
         </div>
 
@@ -100,6 +100,29 @@ export default function ResponderView() {
                 <>
                   <span className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-emerald-500 border-b-[4px] border-b-transparent ml-1" />
                   INITIALIZE
+                </>
+              )}
+            </span>
+          </button>
+
+          {/* MOCK MODE TOGGLE */}
+          <button
+            onClick={() => useSimulationStore.getState().setIsMockMode(!useSimulationStore.getState().isMockMode)}
+            className={`group relative px-6 py-2 rounded-full font-mono text-xs font-bold tracking-widest transition-all duration-500 overflow-hidden border ${useSimulationStore.getState().isMockMode
+              ? "border-purple-500/30 hover:border-purple-500 text-purple-400 hover:bg-purple-500/10"
+              : "border-zinc-700 hover:border-zinc-500 text-zinc-500 hover:bg-zinc-800"
+              }`}
+          >
+            <span className="relative z-10 flex items-center gap-2">
+              {useSimulationStore.getState().isMockMode ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                  MOCK SIMULATION
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-zinc-600" />
+                  LIVE API MODE
                 </>
               )}
             </span>
@@ -167,15 +190,15 @@ export default function ResponderView() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="md:col-span-3 flex flex-col min-h-[400px] md:min-h-0 order-3 md:order-3"
+            className="md:col-span-3 flex flex-col min-h-[400px] md:h-full overflow-hidden order-3 md:order-3"
           >
-            <DashboardCard title="SYSTEM REASONING" className="flex-1" icon={<div className="w-1.5 h-1.5 rounded-sm bg-cyan-500" />}>
+            <DashboardCard title="SYSTEM REASONING" className="flex-1 h-full" icon={<div className="w-1.5 h-1.5 rounded-sm bg-cyan-500" />}>
               <ReasoningLog className="h-full" />
             </DashboardCard>
           </motion.section>
 
         </div>
       </div>
-    </main>
+    </main >
   );
 }

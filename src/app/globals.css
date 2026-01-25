@@ -259,7 +259,33 @@
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Custom Scrollbar for tactical look */
+/* Global Tactical Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(9, 9, 11, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(63, 63, 70, 0.5);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
+  /* Emerald glow on hover */
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(63, 63, 70, 0.5) rgba(9, 9, 11, 0.5);
+}
+
 .tactical-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -274,5 +300,5 @@
 }
 
 .tactical-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  background: #10b981;
 }

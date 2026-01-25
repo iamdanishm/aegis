@@ -1,6 +1,7 @@
 "use server";
 
-import { ai, MODELS } from "@/lib/gemini-client";
+import { ai } from "@/lib/gemini-client";
+import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
 import { triageIncident } from "./triage";
 import { analyzeSurveillance } from "./surveillance";
@@ -26,25 +27,39 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
     */
 
     let processedIncident = { ...incident };
+    let routingTrace = `[COORDINATOR] Input Type: ${incident.type}. `;
 
     try {
         if (incident.type === "AUDIO") {
-            console.log(`[COORDINATOR] Routing to Triage Agent...`);
+            routingTrace += "Routing task to Triage Agent (Audio Specialist)... ";
             const triageResult = await triageIncident(incident);
             processedIncident = { ...processedIncident, ...triageResult };
         } else if (incident.type === "VIDEO") {
-            console.log(`[COORDINATOR] Routing to Surveillance Agent...`);
+            routingTrace += "Routing task to Surveillance Agent (Vision Specialist)... ";
             const surveillanceResult = await analyzeSurveillance(incident);
             processedIncident = { ...processedIncident, ...surveillanceResult };
         } else if (incident.type === "TEXT") {
-            console.log(`[COORDINATOR] Handling Text Incident...`);
-            // We can use the Triage agent for text as well since it specializes in "Distress calls"
+            routingTrace += "Routing task to Triage Agent (Text Specialist)... ";
             const triageResult = await triageIncident(incident);
             processedIncident = { ...processedIncident, ...triageResult };
         }
-    } catch (error) {
+
+        // Secondary Routing: Logistics
+        if (
+            (processedIncident.priority === "HIGH" || processedIncident.priority === "CRITICAL") ||
+            (processedIncident.flood_level === "SEVERE" || processedIncident.flood_level === "CRITICAL")
+        ) {
+            routingTrace += "High Priority detected. Initiating Logistics Agent for asset routing... ";
+            const logisticsResult = await import("./logistics").then(m => m.manageLogistics(processedIncident));
+            processedIncident = { ...processedIncident, ...logisticsResult };
+        } else {
+            routingTrace += "Standard severity. Logistics stand-by. ";
+        }
+
+        processedIncident.coordinator_trace = routingTrace;
+    } catch (error: any) {
         console.error("[COORDINATOR] Error routing incident:", error);
-        // Fallback?
+        processedIncident.coordinator_trace = routingTrace + ` ERROR: ${error.message}`;
     }
 
     return processedIncident;
