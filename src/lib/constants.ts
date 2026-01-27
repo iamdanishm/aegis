@@ -5,4 +5,5 @@ export const MODELS = {
     TRIAGE: "gemini-2.5-flash-lite",       // Complex reasoning
     SURVEILLANCE: "gemini-2.5-flash-lite", // Vision capabilities  
     LOGISTICS: "gemini-2.5-flash-lite",    // Grounding support
+    REASONING: "gemini-3-flash-preview", // Deep research/reporting
 } as const;

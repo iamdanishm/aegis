@@ -10,6 +10,7 @@ import {
     ChevronDown, ChevronUp, AlertCircle,
     Activity
 } from "lucide-react";
+import { CommanderControls } from "./CommanderControls";
 
 const getPriorityColor = (p?: string) => {
     switch (p) {
@@ -31,7 +32,10 @@ const getTypeIcon = (type: string) => {
 };
 
 export function SignalFeed({ className }: { className?: string }) {
-    const { incidents, time, setFocusedIncidentId } = useSimulationStore();
+    // Subscribe to specific slices for better reactivity
+    const incidents = useSimulationStore(state => state.incidents);
+    const time = useSimulationStore(state => state.time);
+
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [mediaUrl, setMediaUrl] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<"video" | "audio" | "image" | null>(null);
@@ -43,11 +47,11 @@ export function SignalFeed({ className }: { className?: string }) {
     const handleNavigate = (e: React.MouseEvent, incident: Incident) => {
         e.stopPropagation();
         if (incident.location && incident.location.lat && incident.location.lng) {
-            // We need to add setFocusedIncidentId to store.ts first, assume it exists for now
-            // If not, we can implement it in the next step.
-            if (setFocusedIncidentId) {
-                setFocusedIncidentId(incident.id);
+            // Navigation logic connected to map via store
+            if (useSimulationStore.getState().setFocusedIncidentId) {
+                useSimulationStore.getState().setFocusedIncidentId(incident.id);
             }
+            console.log("Navigating to", incident.location);
         }
     };
 
@@ -83,7 +87,7 @@ export function SignalFeed({ className }: { className?: string }) {
             </div>
 
             {/* Feed */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 pb-20 scrollbar-thin scrollbar-thumb-zinc-800">
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 pb-20 scrollbar-thin scrollbar-thumb-zinc-800 min-h-0">
                 {incidents.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center py-10">
                         <div className="w-16 h-16 rounded-full border border-zinc-800 flex items-center justify-center mb-4">
@@ -147,7 +151,14 @@ export function SignalFeed({ className }: { className?: string }) {
                                 )}
 
                                 {/* Footer Tags */}
-                                <div className="flex items-center gap-2 mt-2">
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    {/* PROTOCOL ZERO BADGE - Visible when collapsed */}
+                                    {incident.requires_human_auth && incident.auth_status === "PENDING" && (
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-amber-500 text-black animate-pulse flex items-center gap-1 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
+                                            NEEDS APPROVAL
+                                        </span>
+                                    )}
                                     {incident.priority && (
                                         <span className={cn(
                                             "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/20",
@@ -237,6 +248,103 @@ export function SignalFeed({ className }: { className?: string }) {
                                                 </div>
                                             </div>
                                         )}
+
+                                        {/* PROTOCOL ZERO: Human Authorization Gate */}
+                                        {incident.requires_human_auth && incident.auth_status === "PENDING" && (
+                                            <div className="border-2 border-amber-500 bg-amber-500/10 rounded-lg p-4 animate-pulse-slow shadow-[0_0_30px_rgba(245,158,11,0.2)] mt-2">
+                                                <div className="flex items-center gap-3 mb-3 text-amber-500">
+                                                    <div className="relative flex shrink-0 w-3 h-3">
+                                                        <div className="w-full h-full rounded-full bg-amber-500 animate-ping absolute opacity-75" />
+                                                        <div className="w-full h-full rounded-full bg-amber-500 relative" />
+                                                    </div>
+                                                    <span className="text-xs font-black uppercase tracking-widest font-mono">Protocol Zero: Authorization Required</span>
+                                                </div>
+
+                                                <p className="text-[11px] text-amber-100 mb-4 font-mono leading-relaxed border-l-2 border-amber-500/50 pl-2">
+                                                    High-stakes decision flag. System holding for human consensus.
+                                                    Auto-approval sequence initiated...
+                                                </p>
+
+                                                {/* Countdown Bar with Timer */}
+                                                {incident.auth_timeout_at && (
+                                                    <>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-[10px] font-mono text-amber-400">AUTO-APPROVE IN:</span>
+                                                            <span className="text-lg font-mono font-bold text-amber-500 tabular-nums">
+                                                                {Math.max(0, incident.auth_timeout_at - time)}s
+                                                            </span>
+                                                        </div>
+                                                        <div className="w-full h-3 bg-black/50 rounded-full overflow-hidden mb-4 border border-amber-500/30">
+                                                            <div
+                                                                className="h-full bg-gradient-to-r from-amber-600 to-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                                                                style={{
+                                                                    width: `${Math.max(0, Math.min(100, ((incident.auth_timeout_at - time) / 30) * 100))}%`,
+                                                                    transition: 'none'
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            // Optimistic Update handled by store/hook, but here calls server action usually
+                                                            // For now we assume local update via store hook triggers log
+                                                            useSimulationStore.getState().updateIncident(incident.id, {
+                                                                auth_status: "DENIED",
+                                                                status: "RESOLVED",
+                                                                reasoning_trace: (incident.reasoning_trace || "") + " [DENIED BY HUMAN OPERATOR]"
+                                                            });
+                                                            useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] 🛑 Action DENIED by Commander for ${incident.id}`);
+                                                        }}
+                                                        className="bg-red-950 hover:bg-red-900 border border-red-500/30 text-red-500 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors"
+                                                    >
+                                                        Deny
+                                                    </button>
+                                                    <button
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            useSimulationStore.getState().updateIncident(incident.id, {
+                                                                auth_status: "APPROVED",
+                                                                reasoning_trace: (incident.reasoning_trace || "") + " [AUTHORIZED BY HUMAN OPERATOR]"
+                                                            });
+                                                            useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] ✅ Action APPROVED by Commander for ${incident.id}`);
+
+                                                            // Resume Agent Flow
+                                                            const { coordinateIncident } = await import("@/agents/coordinator");
+                                                            coordinateIncident({ ...incident, auth_status: "APPROVED" })
+                                                                .then(processed => useSimulationStore.getState().updateIncident(incident.id, processed));
+                                                        }}
+                                                        className="bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-500 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                                                    >
+                                                        Approve
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Status Stamps for Auth */}
+                                        {incident.auth_status === "APPROVED" && (
+                                            <div className="text-center py-1 mt-2 border-t border-emerald-500/20">
+                                                <span className="text-[9px] font-mono text-emerald-500/80 uppercase tracking-widest">
+                                                    ✓ AUTHORIZED EXECUTION
+                                                </span>
+                                            </div>
+                                        )}
+                                        {incident.auth_status === "DENIED" && (
+                                            <div className="text-center py-1 mt-2 border-t border-red-500/20">
+                                                <span className="text-[9px] font-mono text-red-500/80 uppercase tracking-widest">
+                                                    🛑 EXECUTION HALTED
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Incident-Specific Voice Command */}
+                                        <div className="pt-2 border-t border-white/5">
+                                            <CommanderControls incidentContext={incident} className="w-full justify-center" />
+                                        </div>
                                     </div>
                                 </div>
                             )}

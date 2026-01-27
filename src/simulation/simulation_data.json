@@ -70,5 +70,18 @@
             "address": "Shibuya, Tokyo, Japan"
         },
         "status": "PENDING"
+    },
+    {
+        "id": "EVT-CRITICAL-AUTH-001",
+        "trigger_time_offset": 45,
+        "type": "TEXT",
+        "raw_input": "CRITICAL DAM FAILURE IMMINENT AT SECTOR 7. REQUESTING IMMEDIATE DEPLOYMENT OF LAST REMAINING HEAVY LIFT HELICOPTER FOR EVACUATION. THIS WILL LEAVE SECTOR 3 VULNERABLE.",
+        "location": {
+            "lat": 36.1699,
+            "lng": -115.1398,
+            "address": "Hoover Dam, Nevada, USA"
+        },
+        "status": "PENDING",
+        "requires_human_auth": true
     }
 ]

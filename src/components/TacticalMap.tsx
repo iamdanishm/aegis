@@ -19,6 +19,11 @@ const MapControllerInner = dynamic(
     { ssr: false }
 );
 
+const MapFocusHandler = dynamic(
+    () => import("./MapFocusHandler").then(mod => mod.MapFocusHandler),
+    { ssr: false }
+);
+
 // Priority color mapping (Hex values)
 const PRIORITY_COLORS = {
     CRITICAL: "#ef4444", // Red 500
@@ -70,7 +75,7 @@ function TacticalMarker({ incident }: { incident: Incident }) {
     const icon = useMemo(() => createPulseIcon(incident), [incident.status, incident.priority, incident.id]);
 
     return (
-        <Marker position={[incident.location.lat, incident.location.lng]} icon={icon}>
+        <Marker position={[incident.location.lat || 0, incident.location.lng || 0]} icon={icon}>
             <Popup>
                 <div className="p-1 min-w-[200px]">
                     {/* Header */}
@@ -165,10 +170,6 @@ export function TacticalMap({ className }: { className?: string }) {
                         </span>
                         <span className="text-[10px] font-mono font-bold text-emerald-400 tracking-wider">LIVE FEED</span>
                     </div>
-                    <div className="h-3 w-px bg-white/10"></div>
-                    <div className="text-[10px] font-mono text-zinc-400">
-                        LAT: <span className="text-zinc-200">{center[0].toFixed(4)}</span>
-                    </div>
                 </div>
 
                 <div className="glass-panel px-3 py-1.5 rounded-md">
@@ -196,6 +197,9 @@ export function TacticalMap({ className }: { className?: string }) {
                 />
 
                 <MapControllerInner incidents={incidents} />
+
+                {/* Auto-focus Effect */}
+                <MapFocusHandler />
 
                 {incidents
                     .filter(incident => incident.location && incident.location.lat !== null && incident.location.lng !== null)

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { type Incident } from "./types";
+import { type Incident, type MissionReport } from "./types";
 
 interface SimulationState {
     time: number;
@@ -17,6 +17,20 @@ interface SimulationState {
     setIsMockMode: (isMockMode: boolean) => void;
     focusedIncidentId: string | null;
     setFocusedIncidentId: (id: string | null) => void;
+    notification: { message: string, type: "error" | "success" | "info" } | null;
+    showNotification: (message: string, type?: "error" | "success" | "info") => void;
+    isMicAuthorized: boolean;
+    setIsMicAuthorized: (authorized: boolean) => void;
+    report: MissionReport | null;
+    setReport: (report: MissionReport | null) => void;
+    isSimulationComplete: boolean;
+    setIsSimulationComplete: (complete: boolean) => void;
+
+    isReportOpen: boolean;
+    setIsReportOpen: (isOpen: boolean) => void;
+
+    isGeneratingReport: boolean;
+    setIsGeneratingReport: (isGenerating: boolean) => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -47,4 +61,25 @@ export const useSimulationStore = create<SimulationState>((set) => ({
 
     focusedIncidentId: null,
     setFocusedIncidentId: (focusedIncidentId) => set({ focusedIncidentId }),
+
+    notification: null,
+    showNotification: (message, type = "info") => {
+        set({ notification: { message, type } });
+        setTimeout(() => set({ notification: null }), 5000);
+    },
+
+    isMicAuthorized: false,
+    setIsMicAuthorized: (isMicAuthorized) => set({ isMicAuthorized }),
+
+    report: null,
+    setReport: (report) => set({ report }),
+
+    isSimulationComplete: false,
+    setIsSimulationComplete: (isSimulationComplete) => set({ isSimulationComplete }),
+
+    isReportOpen: false,
+    setIsReportOpen: (isReportOpen) => set({ isReportOpen }),
+
+    isGeneratingReport: false,
+    setIsGeneratingReport: (isGeneratingReport) => set({ isGeneratingReport }),
 }));

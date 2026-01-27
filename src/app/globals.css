@@ -302,3 +302,174 @@
 .tactical-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #10b981;
 }
+
+/* -------------------------------------------------------------------------- */
+/*                            PRINT MEDIA QUERIES                              */
+/* -------------------------------------------------------------------------- */
+
+/* Add this class to body when printing */
+.printing-report main {
+  display: none !important;
+}
+
+@media print {
+
+  /* Reset page for printing */
+  @page {
+    size: A4;
+    margin: 1cm;
+  }
+
+  /* CRITICAL: Force everything visible first */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide the main dashboard content */
+  .dashboard-content {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Hide elements with print:hidden */
+  [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  /* CRITICAL: Override framer-motion on ALL modal elements */
+  .mission-report-modal,
+  .mission-report-modal>*,
+  .mission-report-modal [style*="opacity"],
+  .mission-report-modal [style*="transform"] {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Make report modal fill the page - use static positioning for proper page flow */
+  .mission-report-modal {
+    position: static !important;
+    z-index: 99999 !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Hide the scanline overlay */
+  .mission-report-modal>div:first-of-type {
+    display: none !important;
+  }
+
+  .mission-report-container {
+    position: static !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: black !important;
+    display: block !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Report header */
+  .report-header {
+    background: #27272a !important;
+    color: white !important;
+    border-bottom: 2px solid #000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Force text colors for print */
+  .report-header h2,
+  .report-header p,
+  .report-header span {
+    color: inherit !important;
+  }
+
+  /* Content area - CRITICAL: must be block with no height constraints */
+  .report-content {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 20px !important;
+    background: white !important;
+  }
+
+  .report-paper-bg {
+    background: white !important;
+  }
+
+  .report-watermark {
+    display: none !important;
+  }
+
+  /* Table handling */
+  table {
+    page-break-inside: auto;
+    font-size: 9pt !important;
+    width: 100% !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  th,
+  td {
+    padding: 4px 6px !important;
+    border: 1px solid #ccc !important;
+    color: black !important;
+  }
+
+  /* Keep sections together */
+  .report-section {
+    page-break-inside: avoid;
+  }
+
+  /* Footer */
+  .report-footer {
+    page-break-inside: avoid;
+    margin-top: 20px;
+  }
+
+  /* Colored badges print - ensure colors show */
+  [class*="bg-red-"],
+  [class*="bg-orange-"],
+  [class*="bg-yellow-"],
+  [class*="bg-green-"],
+  [class*="bg-emerald-"],
+  [class*="bg-amber-"],
+  [class*="bg-purple-"],
+  [class*="bg-blue-"],
+  [class*="bg-zinc-"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
