@@ -139,7 +139,7 @@ export default function ResponderPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <AnimatePresence mode="popLayout">
                             {filteredIncidents.map((incident) => (
-                                <IncidentTacticalCard key={incident.id} incident={incident} />
+                                <IncidentTacticalCard key={incident.id} incident={incident} activeRole={activeRole} />
                             ))}
                         </AnimatePresence>
                     </div>
@@ -179,14 +179,51 @@ function RoleTab({ role, icon: Icon, isActive, onClick, color }: any) {
     );
 }
 
-function IncidentTacticalCard({ incident }: { incident: any }) {
+function IncidentTacticalCard({ incident, activeRole }: { incident: any; activeRole: string }) {
+    const { updateIncident, addLog, showNotification, time } = useSimulationStore();
+
+    const isAcknowledged = incident.responder_status === "ACKNOWLEDGED" || incident.responder_status === "EN_ROUTE" || incident.responder_status === "ON_SCENE";
+    const isBackupRequested = incident.backup_requested === true;
+
+    const handleAcknowledge = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const unitId = `${activeRole}-DELTA-01`;
+
+        updateIncident(incident.id, {
+            responder_status: "ACKNOWLEDGED",
+            acknowledged_at: new Date().toISOString(),
+            acknowledged_by: unitId,
+        });
+
+        addLog(`[${time}s] [RESPONDER] ✓ Unit ${unitId} acknowledged ${incident.id}`);
+        showNotification(`Incident ${incident.id} acknowledged. You are now en-route.`, "success");
+    };
+
+    const handleBackup = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const unitId = `${activeRole}-DELTA-01`;
+
+        updateIncident(incident.id, {
+            backup_requested: true,
+            backup_requested_at: new Date().toISOString(),
+        });
+
+        addLog(`[${time}s] [RESPONDER] 🚨 Backup requested for ${incident.id} by ${unitId}`);
+        showNotification(`Backup request sent for ${incident.id}`, "info");
+    };
+
     return (
         <motion.div
             layout
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, x: -20 }}
-            className="group relative bg-[#0a0a0b] border border-zinc-800 hover:border-emerald-500/40 rounded-2xl overflow-hidden transition-all duration-500 shadow-xl"
+            className={cn(
+                "group relative bg-[#0a0a0b] border rounded-2xl overflow-hidden transition-all duration-500 shadow-xl",
+                isAcknowledged
+                    ? "border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.15)]"
+                    : "border-zinc-800 hover:border-emerald-500/40"
+            )}
         >
             {/* Tactical Accents */}
             <div className="absolute top-0 right-0 p-1">
@@ -204,12 +241,20 @@ function IncidentTacticalCard({ incident }: { incident: any }) {
                         incident.priority === "CRITICAL" ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse" :
                             incident.priority === "HIGH" ? "bg-orange-500" : "bg-emerald-500"
                     )} />
-                    <span className={cn(
-                        "text-[10px] font-black tracking-[0.2em] uppercase font-mono",
-                        incident.priority === "CRITICAL" ? "text-red-500" : "text-zinc-400"
-                    )}>
-                        {incident.priority || "NORMAL"} UNIT REQ
-                    </span>
+                    <div className="flex flex-col">
+                        <span className={cn(
+                            "text-[10px] font-black tracking-[0.2em] uppercase font-mono",
+                            incident.priority === "CRITICAL" ? "text-red-500" : "text-zinc-400"
+                        )}>
+                            {incident.priority || "NORMAL"} UNIT REQ
+                        </span>
+                        {isBackupRequested && (
+                            <span className="text-[8px] font-bold text-amber-500 flex items-center gap-1 animate-pulse mt-0.5">
+                                <span className="w-1 h-1 rounded-full bg-amber-500" />
+                                BACKUP PENDING
+                            </span>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center gap-1.5 text-zinc-600 font-mono text-[9px] uppercase">
                     <Crosshair className="w-3 h-3" />
@@ -271,9 +316,9 @@ function IncidentTacticalCard({ incident }: { incident: any }) {
                     />
                     <IntelItem
                         icon={Clock}
-                        label="Status"
-                        value={incident.status || "Assigned"}
-                        status="normal"
+                        label="Responder"
+                        value={isAcknowledged ? "EN-ROUTE" : "AWAITING"}
+                        status={isAcknowledged ? "success" : "normal"}
                     />
                 </div>
 
@@ -296,22 +341,59 @@ function IncidentTacticalCard({ incident }: { incident: any }) {
                     </div>
                 )}
 
+                {/* Acknowledged Info */}
+                {isAcknowledged && incident.acknowledged_at && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Acknowledged</span>
+                        </div>
+                        <div className="mt-1 text-[9px] text-zinc-500 font-mono">
+                            By: {incident.acknowledged_by} | {new Date(incident.acknowledged_at).toLocaleTimeString()}
+                        </div>
+                    </div>
+                )}
+
                 {/* Tactical Actions */}
                 <div className="grid grid-cols-2 gap-3 pt-2">
-                    <button className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all border border-zinc-800 flex items-center justify-center gap-2">
+                    <button
+                        onClick={handleBackup}
+                        disabled={isBackupRequested}
+                        className={cn(
+                            "flex-1 py-3 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all border flex items-center justify-center gap-2",
+                            isBackupRequested
+                                ? "bg-amber-500/10 text-amber-500 border-amber-500/30 cursor-not-allowed"
+                                : "bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border-zinc-800"
+                        )}
+                    >
                         <UserPlus className="w-3 h-3" />
-                        Backup
+                        {isBackupRequested ? "Requested" : "Backup"}
                     </button>
-                    <button className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-[0_5px_15px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2">
+                    <button
+                        onClick={handleAcknowledge}
+                        disabled={isAcknowledged}
+                        className={cn(
+                            "flex-1 py-3 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2",
+                            isAcknowledged
+                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-not-allowed"
+                                : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_5px_15px_rgba(16,185,129,0.2)]"
+                        )}
+                    >
                         <CheckCircle2 className="w-3 h-3" />
-                        Acknowledge
+                        {isAcknowledged ? "En-Route" : "Acknowledge"}
                     </button>
                 </div>
             </div>
 
             {/* Progress Bar Detail */}
-            <div className="h-0.5 w-full bg-zinc-900 group-hover:bg-emerald-500/20 transition-colors">
-                <div className="h-full bg-emerald-500 w-[60%] animate-pulse" />
+            <div className={cn(
+                "h-0.5 w-full transition-colors",
+                isAcknowledged ? "bg-emerald-500/30" : "bg-zinc-900 group-hover:bg-emerald-500/20"
+            )}>
+                <div className={cn(
+                    "h-full w-full",
+                    isAcknowledged ? "bg-emerald-500" : "bg-emerald-500 w-[60%] animate-pulse"
+                )} />
             </div>
         </motion.div>
     );
@@ -320,7 +402,8 @@ function IncidentTacticalCard({ incident }: { incident: any }) {
 function IntelItem({ icon: Icon, label, value, status }: any) {
     const statusColor = status === "danger" ? "text-red-400 border-red-500/20" :
         status === "warning" ? "text-orange-400 border-orange-500/20" :
-            "text-zinc-300 border-zinc-800";
+            status === "success" ? "text-emerald-400 border-emerald-500/20" :
+                "text-zinc-300 border-zinc-800";
 
     return (
         <div className={cn("bg-zinc-900/30 border p-2 rounded-lg", statusColor)}>

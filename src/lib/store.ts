@@ -119,19 +119,28 @@ if (typeof window !== "undefined") {
         if (event.key === "aegis-simulation-store" && event.newValue) {
             try {
                 const newState = JSON.parse(event.newValue);
-                // Trigger a rehydration by updating the store
-                // We use setTimeout to avoid race conditions with Zustand's internal handling
-                setTimeout(() => {
-                    useSimulationStore.setState({
-                        time: newState.state?.time ?? 0,
-                        isPlaying: newState.state?.isPlaying ?? false,
-                        incidents: newState.state?.incidents ?? [],
-                        logs: newState.state?.logs ?? [],
-                        isMockMode: newState.state?.isMockMode ?? false,
-                        isSimulationComplete: newState.state?.isSimulationComplete ?? false,
-                        report: newState.state?.report ?? null,
-                    });
-                }, 0);
+                const currentState = useSimulationStore.getState();
+
+                // Only update if data has actually changed to prevent infinite loops
+                const hasChanges =
+                    newState.state?.time !== currentState.time ||
+                    JSON.stringify(newState.state?.incidents) !== JSON.stringify(currentState.incidents) ||
+                    newState.state?.isSimulationComplete !== currentState.isSimulationComplete;
+
+                if (hasChanges) {
+                    // We use setTimeout to avoid race conditions with Zustand's internal handling
+                    setTimeout(() => {
+                        useSimulationStore.setState({
+                            time: newState.state?.time ?? currentState.time,
+                            isPlaying: newState.state?.isPlaying ?? currentState.isPlaying,
+                            incidents: newState.state?.incidents ?? currentState.incidents,
+                            logs: newState.state?.logs ?? currentState.logs,
+                            isMockMode: newState.state?.isMockMode ?? currentState.isMockMode,
+                            isSimulationComplete: newState.state?.isSimulationComplete ?? currentState.isSimulationComplete,
+                            report: newState.state?.report ?? currentState.report,
+                        });
+                    }, 0);
+                }
             } catch (e) {
                 console.warn("[STORE] Failed to parse cross-tab sync data", e);
             }

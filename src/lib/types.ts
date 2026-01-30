@@ -34,6 +34,12 @@ export interface Incident {
     required_asset?: 'AIR' | 'MARINE' | 'GROUND' | 'General';
     detected_language?: string;
 
+    // Responder Action Fields
+    responder_status?: "PENDING" | "ACKNOWLEDGED" | "EN_ROUTE" | "ON_SCENE" | "RESOLVED";
+    acknowledged_at?: string;         // ISO timestamp when acknowledged
+    acknowledged_by?: string;         // Unit identifier (e.g., "MARINE-DELTA-01")
+    backup_requested?: boolean;       // Flag for backup request
+    backup_requested_at?: string;     // ISO timestamp when backup was requested
 }
 
 export interface AgentResponse {

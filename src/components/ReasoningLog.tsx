@@ -9,23 +9,52 @@ import { MODELS } from "@/lib/constants";
 function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) {
     const [displayText, setDisplayText] = useState("");
     const [isComplete, setIsComplete] = useState(false);
+    const previousTextRef = useRef<string>("");
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
+        // Only reset if the text has actually changed
+        if (previousTextRef.current === text) {
+            return;
+        }
+
+        previousTextRef.current = text;
+
+        // Clear any existing interval
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+        }
+
+        // Reset state for new text
         setDisplayText("");
         setIsComplete(false);
+
+        if (!text) {
+            setIsComplete(true);
+            return;
+        }
+
         let index = 0;
 
-        const interval = setInterval(() => {
+        intervalRef.current = setInterval(() => {
             if (index < text.length) {
                 setDisplayText(text.substring(0, index + 1));
                 index++;
             } else {
                 setIsComplete(true);
-                clearInterval(interval);
+                if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                }
             }
         }, speed);
 
-        return () => clearInterval(interval);
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+                intervalRef.current = null;
+            }
+        };
     }, [text, speed]);
 
     return (
