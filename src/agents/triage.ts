@@ -7,8 +7,30 @@ import { Type } from "@google/genai";
 import fs from "fs";
 import path from "path";
 
+import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+
 // The Triage Agent analyzes distress calls for priority.
 export async function triageIncident(incident: Incident): Promise<Partial<Incident>> {
+    // SIMULATION FALLBACK: If no API key, use mock data
+    if (!process.env.GEMINI_API_KEY) {
+        console.log(`[TRIAGE] [SIMULATION MODE] Returning mock response for ${incident.id}`);
+        const mock = MOCK_RESPONSES[incident.id];
+        if (mock) {
+            return {
+                ...mock,
+                status: "TRIAGED",
+                thought_signature: `MOCK-SIG-${incident.id}-${Date.now()}`
+            };
+        }
+        // Generic fallback if specific ID not found in mocks
+        return {
+            priority: "MEDIUM",
+            category: "General",
+            reasoning_trace: "No specific mock data found. Defaulting to standard triage. [MOCK]",
+            status: "TRIAGED",
+            thought_signature: `MOCK-SIG-GENERIC-${Date.now()}`
+        };
+    }
     console.log(`[TRIAGE] ========================================`);
     console.log(`[TRIAGE] Analyzing incident ${incident.id}...`);
     console.log(`[TRIAGE] Using model: ${MODELS.TRIAGE}`);

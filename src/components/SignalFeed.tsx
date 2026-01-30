@@ -313,9 +313,22 @@ export function SignalFeed({ className }: { className?: string }) {
                                                             useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] ✅ Action APPROVED by Commander for ${incident.id}`);
 
                                                             // Resume Agent Flow
-                                                            const { coordinateIncident } = await import("@/agents/coordinator");
-                                                            coordinateIncident({ ...incident, auth_status: "APPROVED" })
-                                                                .then(processed => useSimulationStore.getState().updateIncident(incident.id, processed));
+                                                            const isMockMode = useSimulationStore.getState().isMockMode;
+                                                            if (isMockMode) {
+                                                                const { MOCK_RESPONSES } = await import("@/simulation/mock_responses");
+                                                                const mock = MOCK_RESPONSES[incident.id];
+                                                                setTimeout(() => {
+                                                                    useSimulationStore.getState().updateIncident(incident.id, {
+                                                                        ...mock,
+                                                                        auth_status: "APPROVED",
+                                                                        status: "TRIAGED"
+                                                                    });
+                                                                }, 1000);
+                                                            } else {
+                                                                const { coordinateIncident } = await import("@/agents/coordinator");
+                                                                coordinateIncident({ ...incident, auth_status: "APPROVED" })
+                                                                    .then(processed => useSimulationStore.getState().updateIncident(incident.id, processed));
+                                                            }
                                                         }}
                                                         className="bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-500 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                                                     >

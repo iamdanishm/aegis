@@ -8,6 +8,49 @@ import { Type } from "@google/genai";
 export async function generateMissionReport(incidents: Incident[], logs: string[]): Promise<MissionReport> {
     console.log("[REPORTER] Generating formal mission report...");
 
+    const missionStats = {
+        total: incidents.length,
+        critical: incidents.filter(i => i.priority === "CRITICAL").length,
+        high: incidents.filter(i => i.priority === "HIGH").length,
+        resolved: incidents.filter(i => i.status === "TRIAGED" || i.status === "RESOLVED").length,
+        pending: incidents.filter(i => i.status === "PENDING").length,
+        protocol_zero_count: incidents.filter(i => i.requires_human_auth).length,
+        protocol_zero_approved: incidents.filter(i => i.auth_status === "APPROVED").length,
+    };
+
+    const deterministicLives = (missionStats.critical * 4) + (missionStats.high * 2);
+    const deterministicScore = Math.min(99, Math.max(0, 65 + (missionStats.critical * 8) + (missionStats.high * 4) - (incidents.filter(i => i.auth_status === "DENIED").length * 10)));
+    const deterministicDuration = `${Math.max(5, Math.ceil(logs.length / 6))} minutes`;
+
+    // SIMULATION FALLBACK: If no API key, use deterministic data
+    if (!process.env.GEMINI_API_KEY) {
+        console.log("[REPORTER] [SIMULATION MODE] Generating deterministic mission report");
+        return {
+            mission_id: `AEGIS-${new Date().toISOString().split('T')[0]}-SIM-${String(Date.now()).slice(-4)}`,
+            duration: deterministicDuration,
+            lives_saved_estimate: deterministicLives,
+            critical_events_summary: [
+                `Processed ${missionStats.total} total incidents via Simulation Mode`,
+                `${missionStats.critical} critical incidents handled by agents`,
+                `${missionStats.resolved} incidents successfully triaged and routed`,
+                missionStats.protocol_zero_count > 0 ? `Protocol Zero was triggered ${missionStats.protocol_zero_count} time(s)` : "No Protocol Zero events detected"
+            ],
+            performance_score: deterministicScore,
+            officer_notes: `[SIMULATION MODE] Mission completed with a performance score of ${deterministicScore}. All agents functioned in simulation mode using mock doomsday datasets. Estimated lives saved: ${deterministicLives}.`,
+            generated_at: new Date().toISOString(),
+            incidents_log: incidents.map(i => ({
+                id: i.id,
+                type: i.type,
+                priority: i.priority || "UNKNOWN",
+                status: i.status,
+                category: i.category || "Uncategorized",
+                location: i.location?.address || (i.location?.lat ? `${i.location.lat.toFixed(4)}, ${i.location.lng.toFixed(4)}` : "Unknown"),
+                assets: i.assigned_assets || [],
+                auth_status: i.requires_human_auth ? (i.auth_status || "N/A") : "N/A"
+            }))
+        };
+    }
+
     // Build incidents log directly (not dependent on LLM)
     const incidents_log = incidents.map(i => ({
         id: i.id,
@@ -20,25 +63,10 @@ export async function generateMissionReport(incidents: Incident[], logs: string[
         auth_status: i.requires_human_auth ? (i.auth_status || "N/A") : "N/A"
     }));
 
-    const missionStats = {
-        total: incidents.length,
-        critical: incidents.filter(i => i.priority === "CRITICAL").length,
-        high: incidents.filter(i => i.priority === "HIGH").length,
-        resolved: incidents.filter(i => i.status === "TRIAGED" || i.status === "RESOLVED").length,
-        pending: incidents.filter(i => i.status === "PENDING").length,
-        protocol_zero_count: incidents.filter(i => i.requires_human_auth).length,
-        protocol_zero_approved: incidents.filter(i => i.auth_status === "APPROVED").length,
-    };
-
     // Filter logs to reduce context window (Critical speed optimization)
     const criticalLogs = logs.filter(l => l.includes("CRITICAL") || l.includes("PROTOCOL ZERO") || l.includes("Action"));
     const recentLogs = logs.slice(-20); // Last 20 logs
     const contextLogs = [...new Set([...criticalLogs, ...recentLogs])].join("\n");
-
-    // Deterministic Calculations to ensure consistency
-    const deterministicLives = (missionStats.critical * 4) + (missionStats.high * 2);
-    const deterministicScore = Math.min(99, Math.max(0, 65 + (missionStats.critical * 8) + (missionStats.high * 4) - (incidents.filter(i => i.auth_status === "DENIED").length * 10)));
-    const deterministicDuration = `${Math.max(5, Math.ceil(logs.length / 6))} minutes`;
 
     const prompt = `You are a military-style report generator for Project Aegis disaster response.
     

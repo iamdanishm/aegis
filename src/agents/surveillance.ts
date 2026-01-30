@@ -7,8 +7,30 @@ import { Type } from "@google/genai";
 import fs from "fs";
 import path from "path";
 
+import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+
 // The Surveillance Agent analyzes drone footage (frames or videos) to assess damage.
 export async function analyzeSurveillance(incident: Incident): Promise<Partial<Incident>> {
+    // SIMULATION FALLBACK: If no API key, use mock data
+    if (!process.env.GEMINI_API_KEY) {
+        console.log(`[SURVEILLANCE] [SIMULATION MODE] Returning mock response for ${incident.id}`);
+        const mock = MOCK_RESPONSES[incident.id];
+        if (mock) {
+            return {
+                ...mock,
+                status: "TRIAGED"
+            };
+        }
+        // Generic fallback
+        return {
+            flood_level: "Low",
+            structural_damage: "Minimal",
+            reasoning_trace: "No specific mock data found. Analysis based on standard detection algorithms. [MOCK]",
+            category: "General Surveillance",
+            priority: "LOW",
+            status: "TRIAGED"
+        };
+    }
     console.log(`[SURVEILLANCE] ========================================`);
     console.log(`[SURVEILLANCE] Analyzing drone footage for incident ${incident.id}...`);
     console.log(`[SURVEILLANCE] Using model: ${MODELS.SURVEILLANCE}`);

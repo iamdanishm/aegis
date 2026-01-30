@@ -111,14 +111,26 @@ export function useDisasterSimulation() {
                     });
 
                     // Re-run Logistics to "Unpause" it
-                    // We just call coordinate again, which calls logistics. 
-                    // Since auth_status is now APPROVED, logistics will proceed.
-                    try {
-                        const processed = await coordinateIncident({ ...inc, auth_status: "APPROVED" });
-                        updateIncident(inc.id, processed);
-                        addLog(`[${time}s] [LOGISTICS] Action Execution Resumed.`);
-                    } catch (e) {
-                        console.error("Error resuming auto-approved incident", e);
+                    const isMockMode = useSimulationStore.getState().isMockMode;
+                    if (isMockMode) {
+                        const { MOCK_RESPONSES } = await import("@/simulation/mock_responses");
+                        const mock = MOCK_RESPONSES[inc.id];
+                        setTimeout(() => {
+                            updateIncident(inc.id, {
+                                ...mock,
+                                auth_status: "APPROVED",
+                                status: "TRIAGED"
+                            });
+                        }, 1000);
+                        addLog(`[${time}s] [LOGISTICS] Action Execution Resumed (MOCK).`);
+                    } else {
+                        try {
+                            const processed = await coordinateIncident({ ...inc, auth_status: "APPROVED" });
+                            updateIncident(inc.id, processed);
+                            addLog(`[${time}s] [LOGISTICS] Action Execution Resumed.`);
+                        } catch (e) {
+                            console.error("Error resuming auto-approved incident", e);
+                        }
                     }
                 }
             }

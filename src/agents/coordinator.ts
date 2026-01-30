@@ -45,61 +45,78 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
         } else if (incident.type === "COMMAND") {
             routingTrace += "🚨 COMMAND OVERRIDE RECEIVED. Processing Voice Command... ";
 
-            // Voice of God Logic: We treat this as a high-priority Instruction
-            // 1. Process Audio to Text (using Triage model for now as it handles audio well, or pure Gemini)
-            // 2. Extract Intent
+            // SIMULATION FALLBACK: If no API key, use mock command result
+            if (!process.env.GEMINI_API_KEY) {
+                console.log(`[COORDINATOR] [SIMULATION MODE] Processing mock command override for ${incident.id}`);
+                const result = {
+                    command_intent: incident.command_intent || "EXECUTE ALL PENDING ORDERS",
+                    reasoning_trace: "Voice of God command received and authenticated via Aegis Command Protocol. [MOCK]"
+                };
+                processedIncident = {
+                    ...processedIncident,
+                    ...result,
+                    priority: "CRITICAL",
+                    category: "COMMAND_OVERRIDE",
+                    status: "RESOLVED"
+                };
+                routingTrace += `Intent Parsed (MOCK): ${result.command_intent}`;
+            } else {
+                // Voice of God Logic: We treat this as a high-priority Instruction
+                // 1. Process Audio to Text (using Triage model for now as it handles audio well, or pure Gemini)
+                // 2. Extract Intent
 
-            let contextString = "Global Override";
-            if (incident.description_for_simulation) {
-                contextString = `Context: ${incident.description_for_simulation}`;
-            }
+                let contextString = "Global Override";
+                if (incident.description_for_simulation) {
+                    contextString = `Context: ${incident.description_for_simulation}`;
+                }
 
-            const commandPrompt = `
-                You are the AI Coordinator receiving a verbal override command from the System Commander (Voice of God).
-                
-                CURRENT CONTEXT: ${contextString}
-                
-                TASKS:
-                1. Transcribe the audio command accurately.
-                2. Extract the CORE INTENT (e.g., "Reroute", "Abort", "Prioritize", "Evacuate").
-                3. Extract specific LOCATIONS or ASSETS mentioned (e.g., "Sector 4", "Dam", "All Units").
-                4. Output a JSON with:
-                   - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
-                   - reasoning_trace: Explanation of the command.
-                   - priority: "CRITICAL".
-             `;
+                const commandPrompt = `
+                    You are the AI Coordinator receiving a verbal override command from the System Commander (Voice of God).
+                    
+                    CURRENT CONTEXT: ${contextString}
+                    
+                    TASKS:
+                    1. Transcribe the audio command accurately.
+                    2. Extract the CORE INTENT (e.g., "Reroute", "Abort", "Prioritize", "Evacuate").
+                    3. Extract specific LOCATIONS or ASSETS mentioned (e.g., "Sector 4", "Dam", "All Units").
+                    4. Output a JSON with:
+                       - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
+                       - reasoning_trace: Explanation of the command.
+                       - priority: "CRITICAL".
+                 `;
 
-            const { models } = await import("@/lib/gemini-client").then(m => m.ai);
-            const { Type } = await import("@google/genai");
+                const { models } = await import("@/lib/gemini-client").then(m => m.ai);
+                const { Type } = await import("@google/genai");
 
-            const response = await models.generateContent({
-                model: MODELS.COORDINATOR,
-                contents: [
-                    { text: commandPrompt },
-                    { inlineData: { mimeType: "audio/webm", data: incident.raw_input.split(',')[1] } }
-                ],
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            command_intent: { type: Type.STRING },
-                            reasoning_trace: { type: Type.STRING },
+                const response = await models.generateContent({
+                    model: MODELS.COORDINATOR,
+                    contents: [
+                        { text: commandPrompt },
+                        { inlineData: { mimeType: "audio/webm", data: incident.raw_input.split(',')[1] } }
+                    ],
+                    config: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                command_intent: { type: Type.STRING },
+                                reasoning_trace: { type: Type.STRING },
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            const result = JSON.parse(response.text || "{}");
-            processedIncident = {
-                ...processedIncident,
-                ...result,
-                priority: "CRITICAL",
-                category: "COMMAND_OVERRIDE",
-                status: "RESOLVED" // Commands are executed immediately
-            };
+                const result = JSON.parse(response.text || "{}");
+                processedIncident = {
+                    ...processedIncident,
+                    ...result,
+                    priority: "CRITICAL",
+                    category: "COMMAND_OVERRIDE",
+                    status: "RESOLVED" // Commands are executed immediately
+                };
 
-            routingTrace += `Intent Parsed: ${result.command_intent}`;
+                routingTrace += `Intent Parsed: ${result.command_intent}`;
+            }
         }
 
         // Secondary Routing: Logistics

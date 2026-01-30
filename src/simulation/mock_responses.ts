@@ -86,5 +86,20 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             lng: 139.6503,
             address: "Shibuya, Tokyo, Japan"
         }
+    },
+    "EVT-CRITICAL-AUTH-001": {
+        priority: "CRITICAL",
+        category: "Infrastructure Failure",
+        reasoning_trace: "CRITICAL: Potential dam failure imminent. Secondary analysis confirms structural integrity is compromised beyond automated repair. Immediate manual intervention and high-level asset deployment required. [MOCK ANALYSIS]",
+        extracted_address: "Hoover Dam, Nevada, USA",
+        extracted_lat: 36.1699,
+        extracted_lng: -115.1398,
+        location: {
+            lat: 36.1699,
+            lng: -115.1398,
+            address: "Hoover Dam, Nevada, USA"
+        },
+        status: "TRIAGED",
+        assigned_assets: ["Heavy Lift Helicopter", "Emergency Engineering Team"]
     }
 };

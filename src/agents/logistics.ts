@@ -5,8 +5,35 @@ import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
 import { Type } from "@google/genai";
 
+import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+
 // The Logistics Agent routes assets and checks for road closures using Grounding.
 export async function manageLogistics(incident: Incident): Promise<Partial<Incident>> {
+    // SIMULATION FALLBACK: If no API key, use mock data
+    if (!process.env.GEMINI_API_KEY) {
+        console.log(`[LOGISTICS] [SIMULATION MODE] Returning mock response for ${incident.id}`);
+        const mock = MOCK_RESPONSES[incident.id];
+        if (mock && mock.assigned_assets) {
+            return {
+                assigned_assets: mock.assigned_assets,
+                reasoning_trace: mock.reasoning_trace || "Optimized logistics path identified. [MOCK]"
+            };
+        }
+
+        // Command fallback
+        if (incident.type === "COMMAND") {
+            return {
+                assigned_assets: ["ALL UNITS"],
+                reasoning_trace: `COMMAND EXECUTED: ${incident.command_intent || "Global Reroute"}. System state updated. [MOCK]`
+            };
+        }
+
+        // Generic fallback
+        return {
+            assigned_assets: ["Standard Response Team"],
+            reasoning_trace: "Logistics analysis complete. Deploying standard response team to location. [MOCK]"
+        };
+    }
     console.log(`[LOGISTICS] Routing assets for incident ${incident.id} at ${incident.location.address || incident.location.lat + "," + incident.location.lng}...`);
 
     // We only run logistics for high priority items in this demo flow
