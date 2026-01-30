@@ -117,19 +117,13 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
         // ... (JSON parsing logic remains the same)
         let result;
         try {
-            // Robust JSON parsing: clean markdown code blocks
-            let cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-            // Find the first and last curly braces to isolate the JSON object
-            const firstOpen = cleanText.indexOf('{');
-            const lastClose = cleanText.lastIndexOf('}');
-
-            if (firstOpen !== -1 && lastClose !== -1) {
-                cleanText = cleanText.substring(firstOpen, lastClose + 1);
-                result = JSON.parse(cleanText);
-            } else {
-                // Fallback if no braces found (unlikely with this prompt)
-                throw new Error("No JSON object found in response");
+            // Robust JSON extraction using regex
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error("Failed to extract JSON from model response");
             }
+            const cleanJson = jsonMatch[0];
+            result = JSON.parse(cleanJson);
         } catch (e) {
             console.warn("[LOGISTICS] Failed to parse JSON, using fallback text parsing or defaults", text);
             result = {

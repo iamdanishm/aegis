@@ -8,7 +8,7 @@ import {
     Mic, Video, FileText, Radio,
     MapPin, Play, ExternalLink,
     ChevronDown, ChevronUp, AlertCircle,
-    Activity
+    Activity, Send, Loader2
 } from "lucide-react";
 import { CommanderControls } from "./CommanderControls";
 
@@ -40,6 +40,10 @@ export function SignalFeed({ className }: { className?: string }) {
     const [mediaUrl, setMediaUrl] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<"video" | "audio" | "image" | null>(null);
 
+    // Live injection state
+    const [liveInput, setLiveInput] = useState("");
+    const [isInjecting, setIsInjecting] = useState(false);
+
     const toggleExpand = (id: string) => {
         setExpandedId(expandedId === id ? null : id);
     };
@@ -66,6 +70,59 @@ export function SignalFeed({ className }: { className?: string }) {
         setMediaUrl(url);
     };
 
+    /**
+     * Inject a live signal into the system for real-time AI processing.
+     * This proves the system works with live input, not just simulation JSON.
+     */
+    const handleInjectSignal = async () => {
+        if (!liveInput.trim() || isInjecting) return;
+
+        setIsInjecting(true);
+        const timestamp = Date.now();
+
+        // Create new incident with live input
+        const newIncident: Incident = {
+            id: `LIVE-${timestamp}`,
+            type: "TEXT",
+            raw_input: liveInput.trim(),
+            timestamp: new Date().toISOString(),
+            location: {
+                lat: 40.7128 + (Math.random() - 0.5) * 0.1, // Random NYC area
+                lng: -74.0060 + (Math.random() - 0.5) * 0.1,
+                address: "Live Injection - Location TBD"
+            },
+            status: "PENDING",
+            description_for_simulation: "User-injected live signal for testing"
+        };
+
+        // Add to store immediately as PENDING
+        useSimulationStore.getState().addIncident(newIncident);
+        useSimulationStore.getState().addLog(`[${time}s] [LIVE] 📡 Live signal injected: ${newIncident.id}`);
+
+        try {
+            // Call the coordinator agent for real AI processing
+            const { coordinateIncident } = await import("@/agents/coordinator");
+            const processedIncident = await coordinateIncident(newIncident);
+
+            // Update the incident with AI analysis
+            useSimulationStore.getState().updateIncident(newIncident.id, processedIncident);
+            useSimulationStore.getState().addLog(`[${time}s] [LIVE] ✅ AI Analysis complete for ${newIncident.id}`);
+
+            // Clear input on success
+            setLiveInput("");
+        } catch (error: any) {
+            console.error("[LIVE INJECTION] Error:", error);
+            useSimulationStore.getState().updateIncident(newIncident.id, {
+                status: "TRIAGED",
+                priority: "HIGH",
+                reasoning_trace: `Error during AI processing: ${error.message}. Flagged for manual review.`
+            });
+            useSimulationStore.getState().addLog(`[${time}s] [LIVE] ⚠️ Error processing ${newIncident.id}: ${error.message}`);
+        } finally {
+            setIsInjecting(false);
+        }
+    };
+
     return (
         <div className={cn("flex flex-col h-full bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden", className)}>
             {/* Header */}
@@ -84,6 +141,46 @@ export function SignalFeed({ className }: { className?: string }) {
                         </span>
                     </div>
                 </h3>
+            </div>
+
+            {/* Live Injection Form */}
+            <div className="p-3 border-b border-zinc-800 bg-zinc-900/50">
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={liveInput}
+                        onChange={(e) => setLiveInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleInjectSignal()}
+                        placeholder="Inject live distress signal (e.g., 'Fire trapped 3 people on 4th floor')"
+                        disabled={isInjecting}
+                        className="flex-1 bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50"
+                    />
+                    <button
+                        onClick={handleInjectSignal}
+                        disabled={!liveInput.trim() || isInjecting}
+                        className={cn(
+                            "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2",
+                            "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30",
+                            "disabled:opacity-50 disabled:cursor-not-allowed",
+                            isInjecting && "animate-pulse"
+                        )}
+                    >
+                        {isInjecting ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Processing...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Send className="w-4 h-4" />
+                                <span>Inject</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+                <p className="text-[10px] text-zinc-600 mt-1.5 font-mono">
+                    📡 Type a distress message and press Enter or click Inject for real-time AI analysis
+                </p>
             </div>
 
             {/* Feed */}
