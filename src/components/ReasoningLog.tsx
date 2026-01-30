@@ -177,6 +177,22 @@ export function ReasoningLog({ className }: { className?: string }) {
                                             </span>
                                         </div>
                                     )}
+                                    {latestTriaged.grounding_queries && latestTriaged.grounding_queries.length > 0 && (
+                                        <div className="border-l-2 border-blue-500/30 pl-2 py-1 bg-blue-500/5 rounded-r">
+                                            <span className="text-blue-400 font-bold uppercase text-[9px] block mb-1 flex items-center gap-1">
+                                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                                                INTEL: LIVE GROUNDING SOURCE
+                                            </span>
+                                            <div className="space-y-1 mt-1">
+                                                {latestTriaged.grounding_queries.map((query, idx) => (
+                                                    <div key={idx} className="text-blue-300/80 text-[9px] flex items-center gap-1">
+                                                        <span className="opacity-50 text-[10px]">🔍</span>
+                                                        <span className="italic">"{query}"</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     <div>
                                         <TypewriterText text={latestTriaged.reasoning_trace || ""} speed={15} />
                                     </div>

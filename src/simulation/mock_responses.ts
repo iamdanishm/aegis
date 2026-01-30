@@ -14,7 +14,9 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             address: "42 Oak Street"
         },
         status: "TRIAGED",
-        assigned_assets: ["Rescue Boat", "Medical Drone"]
+        assigned_assets: ["Rescue Boat", "Medical Drone"],
+        grounding_queries: ["Riverside flooding reports Camden", "Road accessibility Oak Street"],
+        required_asset: "MARINE"
     },
     "EVT-AUDIO-002": {
         priority: "CRITICAL",
@@ -29,7 +31,9 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             address: "North Bridge"
         },
         status: "TRIAGED",
-        assigned_assets: ["Heavy Lift Helicopter", "Dive Team"]
+        assigned_assets: ["Heavy Lift Helicopter", "Dive Team"],
+        grounding_queries: ["Bridge collapse New York reports", "Diving team availability NY"],
+        required_asset: "AIR"
     },
     "EVT-VIDEO-001": {
         flood_level: "None",
@@ -43,7 +47,9 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             lat: 19.0760,
             lng: 72.8777,
             address: "Marine Drive, Mumbai, India"
-        }
+        },
+        grounding_queries: ["Building collapse Mumbai news", "Traffic around Marine Drive"],
+        required_asset: "GROUND"
     },
     "EVT-VIDEO-002": {
         flood_level: "Severe",
@@ -57,7 +63,9 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             lat: 43.6532,
             lng: -79.3832,
             address: "Downtown Toronto, Canada"
-        }
+        },
+        grounding_queries: ["Toronto waterfront flooding live", "Road closures Lakeshore Blvd"],
+        required_asset: "MARINE"
     },
     "EVT-VIDEO-003": {
         flood_level: "None",
@@ -71,7 +79,9 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             lat: 51.5074,
             lng: -0.1278,
             address: "Westminster, London, UK"
-        }
+        },
+        grounding_queries: ["Construction updates Westminster", "Traffic London central"],
+        required_asset: "General"
     },
     "EVT-VIDEO-004": {
         flood_level: "Moderate",
@@ -85,7 +95,9 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             lat: 35.6762,
             lng: 139.6503,
             address: "Shibuya, Tokyo, Japan"
-        }
+        },
+        grounding_queries: ["Shibuya heavy rain warning", "Street flooding Tokyo updates"],
+        required_asset: "GROUND"
     },
     "EVT-CRITICAL-AUTH-001": {
         priority: "CRITICAL",
@@ -100,6 +112,8 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
             address: "Hoover Dam, Nevada, USA"
         },
         status: "TRIAGED",
-        assigned_assets: ["Heavy Lift Helicopter", "Emergency Engineering Team"]
+        assigned_assets: ["Heavy Lift Helicopter", "Emergency Engineering Team"],
+        grounding_queries: ["Hoover Dam structural status manual", "Nevada emergency engineering contacts"],
+        required_asset: "AIR"
     }
 };

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { type Incident, type MissionReport } from "./types";
 
 interface SimulationState {
@@ -31,55 +32,109 @@ interface SimulationState {
 
     isGeneratingReport: boolean;
     setIsGeneratingReport: (isGenerating: boolean) => void;
+
+    // Reset function to clear state
+    resetSimulation: () => void;
 }
 
-export const useSimulationStore = create<SimulationState>((set) => ({
+// Initial State for resets
+const initialState = {
     time: 0,
     isPlaying: false,
-    incidents: [],
-    logs: [],
-
-    setTime: (time) => set({ time }),
-    incrementTime: () => set((state) => ({ time: state.time + 1 })),
-    setIsPlaying: (isPlaying) => set({ isPlaying }),
-
-    addIncident: (incident) => set((state) => ({
-        incidents: [...state.incidents, incident],
-        logs: [...state.logs, `[${state.time}s] New Signal: ${incident.id}`]
-    })),
-
-    updateIncident: (id, updates) => set((state) => ({
-        incidents: state.incidents.map((inc) =>
-            inc.id === id ? { ...inc, ...updates } : inc
-        )
-    })),
-
-    addLog: (log) => set((state) => ({ logs: [...state.logs, log] })),
-
+    incidents: [] as Incident[],
+    logs: [] as string[],
     isMockMode: false,
-    setIsMockMode: (isMockMode) => set({ isMockMode }),
-
     focusedIncidentId: null,
-    setFocusedIncidentId: (focusedIncidentId) => set({ focusedIncidentId }),
-
     notification: null,
-    showNotification: (message, type = "info") => {
-        set({ notification: { message, type } });
-        setTimeout(() => set({ notification: null }), 5000);
-    },
-
     isMicAuthorized: false,
-    setIsMicAuthorized: (isMicAuthorized) => set({ isMicAuthorized }),
-
     report: null,
-    setReport: (report) => set({ report }),
-
     isSimulationComplete: false,
-    setIsSimulationComplete: (isSimulationComplete) => set({ isSimulationComplete }),
-
     isReportOpen: false,
-    setIsReportOpen: (isReportOpen) => set({ isReportOpen }),
-
     isGeneratingReport: false,
-    setIsGeneratingReport: (isGeneratingReport) => set({ isGeneratingReport }),
-}));
+};
+
+export const useSimulationStore = create<SimulationState>()(
+    persist(
+        (set) => ({
+            ...initialState,
+
+            setTime: (time) => set({ time }),
+            incrementTime: () => set((state) => ({ time: state.time + 1 })),
+            setIsPlaying: (isPlaying) => set({ isPlaying }),
+
+            addIncident: (incident) => set((state) => ({
+                incidents: [...state.incidents, incident],
+                logs: [...state.logs, `[${state.time}s] New Signal: ${incident.id}`]
+            })),
+
+            updateIncident: (id, updates) => set((state) => ({
+                incidents: state.incidents.map((inc) =>
+                    inc.id === id ? { ...inc, ...updates } : inc
+                )
+            })),
+
+            addLog: (log) => set((state) => ({ logs: [...state.logs, log] })),
+
+            setIsMockMode: (isMockMode) => set({ isMockMode }),
+
+            setFocusedIncidentId: (focusedIncidentId) => set({ focusedIncidentId }),
+
+            showNotification: (message, type = "info") => {
+                set({ notification: { message, type } });
+                setTimeout(() => set({ notification: null }), 5000);
+            },
+
+            setIsMicAuthorized: (isMicAuthorized) => set({ isMicAuthorized }),
+
+            setReport: (report) => set({ report }),
+
+            setIsSimulationComplete: (isSimulationComplete) => set({ isSimulationComplete }),
+
+            setIsReportOpen: (isReportOpen) => set({ isReportOpen }),
+
+            setIsGeneratingReport: (isGeneratingReport) => set({ isGeneratingReport }),
+
+            resetSimulation: () => set(initialState),
+        }),
+        {
+            name: "aegis-simulation-store", // Storage key
+            storage: createJSONStorage(() => localStorage),
+            // Persist only essential data, not transient UI states
+            partialize: (state) => ({
+                time: state.time,
+                isPlaying: state.isPlaying,
+                incidents: state.incidents,
+                logs: state.logs,
+                isMockMode: state.isMockMode,
+                isSimulationComplete: state.isSimulationComplete,
+                report: state.report,
+            }),
+        }
+    )
+);
+
+// Cross-Tab Synchronization: Listen for storage events from other tabs
+if (typeof window !== "undefined") {
+    window.addEventListener("storage", (event) => {
+        if (event.key === "aegis-simulation-store" && event.newValue) {
+            try {
+                const newState = JSON.parse(event.newValue);
+                // Trigger a rehydration by updating the store
+                // We use setTimeout to avoid race conditions with Zustand's internal handling
+                setTimeout(() => {
+                    useSimulationStore.setState({
+                        time: newState.state?.time ?? 0,
+                        isPlaying: newState.state?.isPlaying ?? false,
+                        incidents: newState.state?.incidents ?? [],
+                        logs: newState.state?.logs ?? [],
+                        isMockMode: newState.state?.isMockMode ?? false,
+                        isSimulationComplete: newState.state?.isSimulationComplete ?? false,
+                        report: newState.state?.report ?? null,
+                    });
+                }, 0);
+            } catch (e) {
+                console.warn("[STORE] Failed to parse cross-tab sync data", e);
+            }
+        }
+    });
+}

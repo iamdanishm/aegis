@@ -30,6 +30,8 @@ export interface Incident {
     requires_human_auth?: boolean; // Protocol Zero
     auth_status?: "PENDING" | "APPROVED" | "DENIED"; // Protocol Zero
     auth_timeout_at?: number; // Protocol Zero (Simulation Time target)
+    grounding_queries?: string[]; // Google Search terms used
+    required_asset?: 'AIR' | 'MARINE' | 'GROUND' | 'General';
 
 }
 

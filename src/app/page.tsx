@@ -224,6 +224,7 @@ export default function ResponderView() {
                 )}
               </span>
             </button>
+
             <div className="flex flex-col items-end">
               <span className="text-[9px] text-zinc-600 font-mono uppercase tracking-widest leading-none mb-1">Status: OK</span>
               <span className="font-mono text-2xl text-zinc-200 tabular-nums leading-none">

@@ -16,7 +16,9 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
         if (mock && mock.assigned_assets) {
             return {
                 assigned_assets: mock.assigned_assets,
-                reasoning_trace: mock.reasoning_trace || "Optimized logistics path identified. [MOCK]"
+                reasoning_trace: mock.reasoning_trace || "Optimized logistics path identified. [MOCK]",
+                required_asset: mock.required_asset,
+                grounding_queries: mock.grounding_queries
             };
         }
 
@@ -72,7 +74,8 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
         instruction = `
         Task:
         1. Search for current road closures or flooding reports in this specific area using Google Search.
-        2. Recommend the best asset to deploy (Helicopter, Boat, High-Water Truck) based on accessibility.
+        2. DETERMINE the required asset type: "AIR" (if inaccessible), "MARINE" (if flooded), or "GROUND" (if clear).
+        3. Recommend the best specific vehicle (e.g., "Rescue Boat", "Blackhawk") based on accessibility.
         `;
     }
 
@@ -86,6 +89,7 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
     
     Output a JSON object with:
     - recommended_asset: The best vehicle for the job (or "ALL UNITS" if command implies).
+    - required_asset_type: "AIR" | "MARINE" | "GROUND" | "General".
     - routing_notes: Explanation of the route and any hazards (or acknowledgement of command).
     - road_status: Summary of road conditions found.
   `;
@@ -104,12 +108,13 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
 
         // Check for grounding metadata
         const metadata = response.candidates?.[0]?.groundingMetadata;
-        if (metadata && metadata.webSearchQueries) {
-            console.log(`[LOGISTICS] Grounding Queries:`, metadata.webSearchQueries);
+        const queries = metadata?.webSearchQueries || [];
+        if (queries.length > 0) {
+            console.log(`[LOGISTICS] Grounding Queries:`, queries);
         }
 
         const text = response.text || "{}";
-        // If Grounding returns text that isn't strict JSON despite schema (edge case), we try catch.
+        // ... (JSON parsing logic remains the same)
         let result;
         try {
             // Robust JSON parsing: clean markdown code blocks
@@ -136,7 +141,9 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
 
         return {
             assigned_assets: [result.recommended_asset],
-            reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes
+            required_asset: (result.required_asset_type || "General").toUpperCase() as any,
+            reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes,
+            grounding_queries: queries
         };
 
 
