@@ -83,5 +83,41 @@
         },
         "status": "PENDING",
         "requires_human_auth": true
+    },
+    {
+        "id": "EVT-TEXT-ES-001",
+        "trigger_time_offset": 50,
+        "type": "TEXT",
+        "raw_input": "Ayuda! El agua está subiendo en el sótano. Mi abuela no puede caminar.",
+        "location": {
+            "lat": 51.5074,
+            "lng": -0.1278,
+            "address": "London, UK"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-TEXT-HI-001",
+        "trigger_time_offset": 55,
+        "type": "TEXT",
+        "raw_input": "Building gir gaya hai! Bahut log phase hue hain sector 4 mein.",
+        "location": {
+            "lat": 51.5074,
+            "lng": -0.1278,
+            "address": "London, UK"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-TEXT-FR-001",
+        "trigger_time_offset": 60,
+        "type": "TEXT",
+        "raw_input": "Incendie incontrôlable près de la station service!",
+        "location": {
+            "lat": null,
+            "lng": null,
+            "address": null
+        },
+        "status": "PENDING"
     }
 ]

@@ -159,6 +159,12 @@ export function SignalFeed({ className }: { className?: string }) {
                                             NEEDS APPROVAL
                                         </span>
                                     )}
+                                    { /* TRANSLATION BADGE (CINEMATIC) */}
+                                    {incident.detected_language && incident.detected_language !== 'English' && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
+                                            🌐 Translated from {incident.detected_language}
+                                        </span>
+                                    )}
                                     {incident.priority && (
                                         <span className={cn(
                                             "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/20",

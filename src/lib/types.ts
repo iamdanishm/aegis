@@ -32,6 +32,7 @@ export interface Incident {
     auth_timeout_at?: number; // Protocol Zero (Simulation Time target)
     grounding_queries?: string[]; // Google Search terms used
     required_asset?: 'AIR' | 'MARINE' | 'GROUND' | 'General';
+    detected_language?: string;
 
 }
 

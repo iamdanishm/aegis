@@ -149,14 +149,21 @@ export function useDisasterSimulation() {
         // Add a buffer to allow for processing/reasoning visualization
         const END_BUFFER = 8;
 
+        const allIncidents = useSimulationStore.getState().incidents;
+
         // Check if any Protocol Zero incidents are still pending - don't stop until they're resolved
-        const pendingAuthIncidents = useSimulationStore.getState().incidents.filter(
+        const pendingAuthIncidents = allIncidents.filter(
             i => i.requires_human_auth && i.auth_status === "PENDING"
         );
 
-        // If there are pending auth incidents, don't stop the simulation yet
-        if (pendingAuthIncidents.length > 0) {
-            return; // Keep running until all auth decisions are made
+        // Check if any incidents are still being processed (status PENDING means not yet triaged)
+        const pendingTriageIncidents = allIncidents.filter(
+            i => i.status === "PENDING"
+        );
+
+        // If there are pending auth incidents or pending triage, don't stop the simulation yet
+        if (pendingAuthIncidents.length > 0 || pendingTriageIncidents.length > 0) {
+            return; // Keep running until all decisions are made and all incidents triaged
         }
 
         if (time > lastEventTime + END_BUFFER) {

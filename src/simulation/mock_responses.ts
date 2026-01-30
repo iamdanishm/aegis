@@ -115,5 +115,51 @@ export const MOCK_RESPONSES: Record<string, Partial<Incident>> = {
         assigned_assets: ["Heavy Lift Helicopter", "Emergency Engineering Team"],
         grounding_queries: ["Hoover Dam structural status manual", "Nevada emergency engineering contacts"],
         required_asset: "AIR"
+    },
+    // FOREIGN LANGUAGE INCIDENTS (Universal Translation)
+    "EVT-TEXT-ES-001": {
+        priority: "CRITICAL",
+        category: "FLOOD",
+        reasoning_trace: "Basement flooding emergency. Elderly person trapped and unable to walk. Immediate rescue required. (Translated from Spanish)",
+        detected_language: "Spanish",
+        location: {
+            lat: 51.5074,
+            lng: -0.1278,
+            address: "London, UK"
+        },
+        status: "TRIAGED",
+        assigned_assets: ["Rescue Boat", "Medical Team"],
+        grounding_queries: ["Flooding reports London", "Basement rescue protocols"],
+        required_asset: "MARINE"
+    },
+    "EVT-TEXT-HI-001": {
+        priority: "CRITICAL",
+        category: "COLLAPSE",
+        reasoning_trace: "Building has collapsed. Multiple people trapped in Sector 4. Immediate heavy rescue required. (Translated from Hindi)",
+        detected_language: "Hindi",
+        location: {
+            lat: 51.5074,
+            lng: -0.1278,
+            address: "London, UK"
+        },
+        status: "TRIAGED",
+        assigned_assets: ["Heavy Lift Helicopter", "Urban Search & Rescue"],
+        grounding_queries: ["Building collapse London", "Sector 4 emergency access"],
+        required_asset: "AIR"
+    },
+    "EVT-TEXT-FR-001": {
+        priority: "HIGH",
+        category: "FIRE",
+        reasoning_trace: "Uncontrolled fire near gas station. High explosion risk. Immediate fire response required. (Translated from French)",
+        detected_language: "French",
+        location: {
+            lat: 48.8566,
+            lng: 2.3522,
+            address: "Paris, France"
+        },
+        status: "TRIAGED",
+        assigned_assets: ["Fire Response Unit", "Hazmat Team"],
+        grounding_queries: ["Gas station fire protocols", "Paris emergency services"],
+        required_asset: "GROUND"
     }
 };
