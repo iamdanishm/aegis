@@ -12,6 +12,7 @@ const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapCo
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
+const Polyline = dynamic(() => import("react-leaflet").then(mod => mod.Polyline), { ssr: false });
 
 // Map Controller component - dynamically imported
 const MapControllerInner = dynamic(
@@ -204,7 +205,21 @@ export function TacticalMap({ className }: { className?: string }) {
                 {incidents
                     .filter(incident => incident.location && incident.location.lat !== null && incident.location.lng !== null)
                     .map((incident) => (
-                        <TacticalMarker key={incident.id} incident={incident} />
+                        <div key={incident.id}>
+                            <TacticalMarker incident={incident} />
+                            {incident.suggested_route && incident.suggested_route.coordinates && (
+                                <Polyline
+                                    positions={incident.suggested_route.coordinates}
+                                    pathOptions={{
+                                        color: incident.priority === 'CRITICAL' ? '#ef4444' : '#06b6d4',
+                                        dashArray: '5, 10',
+                                        dashOffset: '0',
+                                        opacity: 0.8,
+                                        weight: 3
+                                    }}
+                                />
+                            )}
+                        </div>
                     ))}
             </MapContainer>
 

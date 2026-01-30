@@ -33,6 +33,9 @@ interface SimulationState {
     isGeneratingReport: boolean;
     setIsGeneratingReport: (isGenerating: boolean) => void;
 
+    rawThinkingProcess: string | null;
+    setRawThinkingProcess: (content: string | null) => void;
+
     // Reset function to clear state
     resetSimulation: () => void;
 }
@@ -51,6 +54,7 @@ const initialState = {
     isSimulationComplete: false,
     isReportOpen: false,
     isGeneratingReport: false,
+    rawThinkingProcess: null,
 };
 
 export const useSimulationStore = create<SimulationState>()(
@@ -93,6 +97,8 @@ export const useSimulationStore = create<SimulationState>()(
             setIsReportOpen: (isReportOpen) => set({ isReportOpen }),
 
             setIsGeneratingReport: (isGeneratingReport) => set({ isGeneratingReport }),
+
+            setRawThinkingProcess: (rawThinkingProcess) => set({ rawThinkingProcess }),
 
             resetSimulation: () => set(initialState),
         }),

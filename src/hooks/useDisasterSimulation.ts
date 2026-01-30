@@ -13,7 +13,9 @@ export function useDisasterSimulation() {
         addIncident,
         updateIncident,
         addLog,
-        setIsSimulationComplete
+        setIsSimulationComplete,
+        setRawThinkingProcess,
+        rawThinkingProcess
     } = useSimulationStore();
 
     // Timer Effect
@@ -69,10 +71,51 @@ export function useDisasterSimulation() {
                         addLog(`[${time}s] [COORDINATOR] No mock data for ${incident.id}`);
                     }
                 } else {
-                    // Call Coordinator (Server Action)
+                    // Call Streaming Coordinator (Real-time Glass Box)
                     try {
-                        const processed = await coordinateIncident(incident);
+                        setRawThinkingProcess(""); // Reset thinking buffer
+
+                        const response = await fetch("/api/coordinate/stream", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(incident),
+                        });
+
+                        if (!response.body) throw new Error("No response body");
+
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let processed = incident;
+                        let fullThinking = "";
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            const chunk = decoder.decode(value, { stream: true });
+                            const lines = chunk.split("\n").filter(line => line.trim() !== "");
+
+                            for (const line of lines) {
+                                try {
+                                    const event = JSON.parse(line);
+                                    if (event.type === "thought") {
+                                        fullThinking += event.content;
+                                        setRawThinkingProcess(fullThinking);
+                                    } else if (event.type === "result") {
+                                        processed = { ...incident, ...event.data };
+                                    } else if (event.type === "error") {
+                                        console.error("Stream Error:", event.message);
+                                    }
+                                } catch (e) {
+                                    console.warn("JSON Parse Error in stream chunk", line);
+                                }
+                            }
+                        }
+
+                        // Finalize
                         updateIncident(incident.id, processed);
+                        setRawThinkingProcess(null); // Clear thinking state
+
                         // Don't log "Analysis complete" if it's paused for auth, let UI show that
                         if (!processed.requires_human_auth || processed.auth_status === "APPROVED") {
                             addLog(`[${time}s] [COORDINATOR] Analysis complete for ${incident.id}.`);
@@ -80,6 +123,7 @@ export function useDisasterSimulation() {
                     } catch (e: any) {
                         console.error(e);
                         addLog(`[${time}s] [COORDINATOR] Error processing ${incident.id}: ${e.message || "Unknown error"}`);
+                        setRawThinkingProcess(null);
                     }
                 }
             }

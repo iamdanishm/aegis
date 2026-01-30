@@ -1,12 +1,12 @@
 "use server";
 
-import { ai } from "@/lib/gemini-client";
+import { ai, generateThoughtSignature } from "@/lib/gemini-client";
 import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
 import { Type } from "@google/genai";
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
+
 
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
@@ -14,12 +14,7 @@ import { MOCK_RESPONSES } from "@/simulation/mock_responses";
  * Generate a real SHA-256 cryptographic signature for audit trail.
  * Creates a hash of reasoning + priority + timestamp as "Chain of Custody" proof.
  */
-function generateThoughtSignature(reasoning: string, priority: string, timestamp: number): string {
-    const data = `${reasoning}|${priority}|${timestamp}`;
-    const hash = crypto.createHash("sha256").update(data).digest("hex");
-    console.log(`[TRIAGE] Generated Thought Signature: ${hash.substring(0, 16)}...`);
-    return hash;
-}
+
 export async function triageIncident(incident: Incident): Promise<Partial<Incident>> {
     // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {

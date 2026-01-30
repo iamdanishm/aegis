@@ -90,8 +90,9 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
     Output a JSON object with:
     - recommended_asset: The best vehicle for the job (or "ALL UNITS" if command implies).
     - required_asset_type: "AIR" | "MARINE" | "GROUND" | "General".
-    - routing_notes: Explanation of the route and any hazards (or acknowledgement of command).
+    - routing_notes: Explanation of the route and any hazards.
     - road_status: Summary of road conditions found.
+    - suggested_route: { coordinates: [[lat, lng], ...] } -> Must include 5-10 lat/lng pairs representing a path from a hypothetical base (approx 5km North-West of incident) to the incident location.
   `;
 
     try {
@@ -137,7 +138,7 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
             assigned_assets: [result.recommended_asset],
             required_asset: (result.required_asset_type || "General").toUpperCase() as any,
             reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes,
-            grounding_queries: queries
+            suggested_route: result.suggested_route
         };
 
 

@@ -66,7 +66,7 @@ function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) 
 }
 
 export function ReasoningLog({ className }: { className?: string }) {
-    const { logs, incidents, isGeneratingReport, isSimulationComplete } = useSimulationStore();
+    const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess } = useSimulationStore();
     const scrollRef = useRef<HTMLDivElement>(null);
     const [displayLogs, setDisplayLogs] = useState<string[]>([]);
 
@@ -180,11 +180,20 @@ export function ReasoningLog({ className }: { className?: string }) {
                         <div className="text-cyan-400/90 text-[11px] leading-relaxed max-h-[300px] overflow-y-auto space-y-3 custom-scrollbar">
                             {pendingIncident && (
                                 <div className="animate-pulse flex flex-col gap-2">
-                                    <div className="h-2 w-3/4 bg-zinc-800 rounded"></div>
-                                    <div className="h-2 w-1/2 bg-zinc-800 rounded"></div>
-                                    <div className="text-[10px] text-zinc-500 italic mt-2">
-                                        [COORDINATOR] Routing signal to specialized agents...
-                                    </div>
+                                    {rawThinkingProcess ? (
+                                        <div className="font-mono text-[10px] text-cyan-300 whitespace-pre-wrap">
+                                            {rawThinkingProcess}
+                                            <span className="inline-block w-2 h-4 bg-cyan-400 ml-1 animate-pulse align-middle"></span>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="h-2 w-3/4 bg-zinc-800 rounded"></div>
+                                            <div className="h-2 w-1/2 bg-zinc-800 rounded"></div>
+                                            <div className="text-[10px] text-zinc-500 italic mt-2">
+                                                [COORDINATOR] Routing signal to specialized agents...
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
@@ -247,7 +256,9 @@ export function ReasoningLog({ className }: { className?: string }) {
                             </div>
                             <div className="text-[8px] text-zinc-700 font-mono flex items-center gap-1">
                                 <span className="w-1 h-1 bg-emerald-500 rounded-full" />
-                                {latestTriaged.thought_signature || "SIG-VERIFIED"}
+                                {latestTriaged.thought_signature ?
+                                    (latestTriaged.thought_signature.startsWith("GEMINI-AUTH") ? "Gemini Thought Signature" : "Verifiable Audit Token")
+                                    : "SIG-VERIFIED"}
                             </div>
                         </div>
                     )}

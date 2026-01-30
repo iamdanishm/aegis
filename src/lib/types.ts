@@ -33,6 +33,9 @@ export interface Incident {
     grounding_queries?: string[]; // Google Search terms used
     required_asset?: 'AIR' | 'MARINE' | 'GROUND' | 'General';
     detected_language?: string;
+    suggested_route?: {
+        coordinates: [number, number][];
+    };
 
     // Responder Action Fields
     responder_status?: "PENDING" | "ACKNOWLEDGED" | "EN_ROUTE" | "ON_SCENE" | "RESOLVED";

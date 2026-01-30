@@ -6,4 +6,5 @@ export const MODELS = {
     SURVEILLANCE: "gemini-3-flash-preview",       // Vision capabilities  
     LOGISTICS: "gemini-3-flash-preview",          // Grounding support
     REASONING: "gemini-3-flash-preview",        // Deep research/reporting
+    THINKING: "gemini-2.0-flash-thinking-exp",  // Dedicated reasoning model
 } as const;
