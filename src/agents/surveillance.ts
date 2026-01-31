@@ -218,9 +218,11 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
         if (peopleCount > 0) {
             if (safety.includes("danger") || safety.includes("trapped") || safety.includes("injured") || safety.includes("critical")) {
                 calculatedPriority = "CRITICAL";
-            } else if (calculatedPriority === "LOW" || calculatedPriority === "MEDIUM") {
-                // If people are present but seemingly safe, bump minimal priority to High just in case
-                calculatedPriority = "HIGH";
+            } else if (calculatedPriority === "LOW") {
+                // If people are present but seemingly safe, bump to MEDIUM for verification
+                calculatedPriority = "MEDIUM";
+                result.requires_logistics = true;
+                result.suggested_asset_type = "RECON_DRONE";
             }
         }
 

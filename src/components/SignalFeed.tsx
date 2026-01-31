@@ -173,7 +173,7 @@ export function SignalFeed({ className }: { className?: string }) {
                 {[...incidents].reverse().map((incident, index) => {
                     const isExpanded = expandedId === incident.id;
                     const cleanRawInput = incident.raw_input.split('/').pop() || incident.raw_input;
-                    const hasLocation = !!(incident.location && typeof incident.location.lat === 'number');
+                    const hasLocation = !!(incident.location && typeof incident.location.lat === 'number' && incident.location.lat !== 0);
 
                     return (
                         <div
@@ -264,9 +264,9 @@ export function SignalFeed({ className }: { className?: string }) {
 
                                     {/* Detailed Tags - Only show critical ones collapsed, all expanded */}
                                     {incident.manual_trace_required && (
-                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-red-600/10 text-red-400 border border-red-500/30 animate-pulse flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-red-600/10 text-red-400 border border-red-500/30 animate-pulse flex items-center gap-1.5 whitespace-nowrap">
                                             <AlertCircle className="w-3 h-3" />
-                                            Unknown Loc
+                                            UNKNOWN LOCATION
                                         </span>
                                     )}
 
@@ -311,7 +311,7 @@ export function SignalFeed({ className }: { className?: string }) {
 
                                     {/* Actions Grid */}
                                     <div className="grid grid-cols-2 gap-3">
-                                        {(hasLocation || incident.manual_trace_required) && incident.status !== "PENDING" && (
+                                        {(hasLocation && !incident.manual_trace_required) && incident.status !== "PENDING" && (
                                             <button
                                                 onClick={(e) => handleNavigate(e, incident)}
                                                 className="flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 py-2.5 rounded-lg text-xs font-bold transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]"

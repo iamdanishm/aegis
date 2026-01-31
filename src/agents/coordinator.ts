@@ -233,7 +233,9 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
         if (
             (processedIncident.priority === "HIGH" || processedIncident.priority === "CRITICAL") ||
             (processedIncident.flood_level === "SEVERE" || processedIncident.flood_level === "CRITICAL") ||
-            processedIncident.type === "COMMAND"
+            processedIncident.type === "COMMAND" ||
+            processedIncident.requires_logistics === true ||
+            processedIncident.suggested_asset_type?.includes("DRONE")
         ) {
             routingTrace += " Initiating Logistics/System Update... ";
             const logisticsResult = await import("./logistics").then(m => m.manageLogistics(processedIncident));

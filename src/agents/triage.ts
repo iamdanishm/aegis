@@ -111,11 +111,15 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     
     6. REASONING TRACE: Concise summary starting with location methodology status.
     7. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
-       - If "MANUAL_TRACE_REQUIRED", require logistics but note "Pending Trace".
+       - If "MANUAL_TRACE_REQUIRED", set 'requires_logistics' = true and 'suggested_asset_type' = "RECON_DRONE".
+       - If the incident is unverified by grounding but plausible, set 'requires_logistics' = true and 'suggested_asset_type' = "DRONE_VERIFICATION".
 
-    PRIORITY RULES:
-    - If external verification (Grounding) FAILS to find recent reports matching the claim, DOWNGRADE PRIORITY. Do NOT set to CRITICAL unless there is strong corroborating evidence.
-    - If "Unknown Location" or "Signal Lost", max priority is HIGH (requires investigation), never CRITICAL (requires immediate rescue).
+    PRIORITY RULES (STRICT):
+    - GROUNDING OVERRIDE: If the googleSearch tool returns NO evidence of a disaster in the reported area, or if official reports (news, weather) contradict the claim, you MUST DOWNGRADE priority to LOW or MEDIUM.
+    - UNCERTAINTY & FAKES: If you suspect the incident is fake, historical, or low-urgency due to lack of corroborating news, use LOW priority.
+    - VERIFICATION PROTOCOL: If the signal is plausible but unverified by grounding, set priority to MEDIUM (Investigative) and request "DRONE_VERIFICATION".
+    - DO NOT set to CRITICAL or HIGH unless there is strong corroborating evidence or the signal is extremely detailed and consistent.
+    - "Unknown Location" or "Signal Lost" incidents must never be CRITICAL. Max: MEDIUM.
 
     RESPONSE FORMAT (JSON):
     {

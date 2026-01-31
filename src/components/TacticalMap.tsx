@@ -246,8 +246,9 @@ export function TacticalMap({ className }: { className?: string }) {
                 {incidents
                     .filter(incident =>
                         incident.location &&
-                        incident.location.lat !== null &&
-                        incident.location.lng !== null &&
+                        incident.location.lat !== 0 &&
+                        incident.location.lng !== 0 &&
+                        !incident.manual_trace_required &&
                         incident.status !== "PENDING" // HIDE PENDING nodes until analyzing/triaged
                     )
                     .map((incident) => (
