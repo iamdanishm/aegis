@@ -7,12 +7,29 @@ import { Type } from "@google/genai";
 
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
+// Helper for cinematic typing effect
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // The Logistics Agent routes assets and checks for road closures using Grounding.
-export async function manageLogistics(incident: Incident): Promise<Partial<Incident>> {
+export async function manageLogistics(incident: Incident, onThought?: (thought: string) => void): Promise<Partial<Incident>> {
     // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {
         console.log(`[LOGISTICS] [SIMULATION MODE] Returning mock response for ${incident.id}`);
         const mock = MOCK_RESPONSES[incident.id];
+
+        if (onThought) {
+            const mockThoughts = [
+                "Checking asset availability...",
+                "Querying road closure database...",
+                "Calculating optimal route...",
+                "Drafting deployment orders..."
+            ];
+            for (const t of mockThoughts) {
+                onThought(t + "\n");
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
         if (mock && mock.assigned_assets) {
             return {
                 assigned_assets: mock.assigned_assets,
@@ -21,7 +38,7 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
                 grounding_queries: mock.grounding_queries
             };
         }
-
+        // ... (Keep existing fallbacks)
         // Command fallback
         if (incident.type === "COMMAND") {
             return {
@@ -73,74 +90,126 @@ export async function manageLogistics(incident: Incident): Promise<Partial<Incid
     } else {
         instruction = `
         Task:
-        1. Search for current road closures or flooding reports in this specific area using Google Search.
-        2. DETERMINE the required asset type: "AIR" (if inaccessible), "MARINE" (if flooded), or "GROUND" (if clear).
-        3. Recommend the best specific vehicle (e.g., "Rescue Boat", "Blackhawk") based on accessibility.
+        1. TEMPORAL VERIFICATION (CRITICAL):
+           - Search for this specific incident code or description to see if it is a "Historical Event" (e.g. from 2024, 2025).
+           - Compare any found dates with the CURRENT SYSTEM TIME provided below.
+           - If the event appears to be from the past (> 24 hours ago), flag verification_status as "HISTORICAL".
+           - If no external confirmation is found but it's a realistic localized signal, flag as "UNVERIFIED" but proceed with caution.
+           - If confirmed as happening NOW, flag as "VERIFIED".
+
+        2. Search for current road closures or flooding reports in this specific area using Google Search.
+        3. DETERMINE the required asset type: 
+           - **CRITICAL RULE**: If verification_status is "HISTORICAL" or "UNVERIFIED", DO NOT recommend high-value assets like "Marine Rescue" or "Blackhawk". Instead, recommend "Drone Surveillance" or "Police Patrol" for initial confirmation.
+           - If VERIFIED: "AIR" (if inaccessible), "MARINE" (if flooded), or "GROUND" (if clear).
+        4. Recommend the best specific vehicle based on verification status and accessibility.
         `;
     }
 
-    const prompt = `
-    You are a Logistics Coordinator for emergency response.
-    The incident is located at: ${incident.location.address || "Unknown Location (Lat: " + incident.location.lat + ", Lng: " + incident.location.lng + ")"}.
-    Incident Category: ${incident.category || "General Emergency"}.
-    Priority: ${incident.priority || "UNKNOWN"}.
-    
-    ${instruction}
-    
-    Output a JSON object with:
+    const systemInstruction = `
+    You are a Logistics Coordinator for Project Aegis.
+
+    ROLE:
+    Your job is to route emergency assets (vehicles, boats, aircraft) to incidents based on:
+    1. Incident Needs (e.g., Flood -> Boat, Fire -> Firetruck).
+    2. Environmental Conditions (e.g., Blocked roads, Weather).
+    3. Asset Availability.
+
+    OUTPUT ADHERENCE:
+    You must output a strictly valid JSON object.
     - recommended_asset: The best vehicle for the job (or "ALL UNITS" if command implies).
     - required_asset_type: "AIR" | "MARINE" | "GROUND" | "General".
-    - routing_notes: Explanation of the route and any hazards.
-    - road_status: Summary of road conditions found.
+    - verification_status: "VERIFIED" | "UNVERIFIED" | "HISTORICAL".
+    - routing_notes: Explanation of the route, verification findings, and any hazards.
+    - road_status: Summary of road conditions found using Grounding.
     - suggested_route: { coordinates: [[lat, lng], ...] } -> Must include 5-10 lat/lng pairs representing a path from a hypothetical base (approx 5km North-West of incident) to the incident location.
-  `;
+    `;
+
+    const userPrompt = `
+    CURRENT SYSTEM TIME: ${new Date().toLocaleString("en-US", { timeZone: "UTC" })} UTC
+    
+    INCIDENT DATA:
+    ID: ${incident.id}
+    Location: ${incident.location.address || "Unknown (Lat: " + incident.location.lat + ", Lng: " + incident.location.lng + ")"}
+    Category: ${incident.category || "General Emergency"}
+    Priority: ${incident.priority || "UNKNOWN"}
+    
+    SPECIAL INSTRUCTIONS:
+    ${instruction}
+    
+    Determine the optimal logistics response and VERIFY the incident timeline.
+    `;
 
     try {
-        const response = await ai.models.generateContent({
+        const resultStream = await ai.models.generateContentStream({
             model: MODELS.LOGISTICS,
-            contents: prompt,
+            contents: [{ text: userPrompt }],
             config: {
+                systemInstruction: systemInstruction,
                 tools: [{ googleSearch: {} }], // Grounding enabled
+                thinkingConfig: {
+                    includeThoughts: true,
+                    thinkingLevel: "HIGH" as any
+                }
             },
-            // Note: Grounding with JSON schema is supported in Gemini 1.5 Pro/Flash and newer.
-            // If schema causes issues with Grounding (sometimes it does), we might need to parse text.
-            // But Gemini 3 supports this well.
         });
 
-        // Check for grounding metadata
-        const metadata = response.candidates?.[0]?.groundingMetadata;
-        const queries = metadata?.webSearchQueries || [];
-        if (queries.length > 0) {
-            console.log(`[LOGISTICS] Grounding Queries:`, queries);
+        let fullText = "";
+        let collectedThoughts = "";
+
+        for await (const chunk of resultStream) {
+            // Check for grounding metadata in stream chunks
+            const metadata = chunk.candidates?.[0]?.groundingMetadata;
+            if (metadata?.webSearchQueries) {
+                console.log(`[LOGISTICS] Grounding Queries:`, metadata.webSearchQueries);
+            }
+
+            const parts = chunk.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.thought) {
+                    collectedThoughts += part.text;
+                    if (onThought && part.text) {
+                        // CINEMATIC SMOOTHING:
+                        const chunkText = part.text;
+                        for (let i = 0; i < chunkText.length; i += 5) {
+                            onThought(chunkText.slice(i, i + 5));
+                            await delay(15);
+                        }
+                    }
+                } else if (part.text) {
+                    fullText += part.text;
+                }
+            }
         }
 
-        const text = response.text || "{}";
-        // ... (JSON parsing logic remains the same)
+        // ... (JSON parsing logic)
         let result;
         try {
             // Robust JSON extraction using regex
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const jsonMatch = fullText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
                 throw new Error("Failed to extract JSON from model response");
             }
             const cleanJson = jsonMatch[0];
             result = JSON.parse(cleanJson);
         } catch (e) {
-            console.warn("[LOGISTICS] Failed to parse JSON, using fallback text parsing or defaults", text);
+            console.warn("[LOGISTICS] Failed to parse JSON, using fallback text parsing or defaults", fullText);
             result = {
                 recommended_asset: incident.type === "COMMAND" ? "SYSTEM UPDATE" : "Standard Rescue Boat",
-                routing_notes: text.substring(0, 200), // Keep more text
+                routing_notes: fullText.substring(0, 200),
                 road_status: "Manual check required due to parsing error."
             };
         }
+
+        // Store raw thoughts in custom field
+        (result as any).raw_thoughts = collectedThoughts.trim() || result.reasoning_trace;
 
         return {
             assigned_assets: [result.recommended_asset],
             required_asset: (result.required_asset_type || "General").toUpperCase() as any,
             reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes,
-            suggested_route: result.suggested_route
+            suggested_route: result.suggested_route,
+            verification_status: result.verification_status || "UNVERIFIED"
         };
-
 
     } catch (error) {
         console.error("[LOGISTICS] Error managing logistics:", error);

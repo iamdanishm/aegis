@@ -5,6 +5,5 @@ export const MODELS = {
     TRIAGE: "gemini-3-pro-preview",    // Deep reasoning with thinking
     SURVEILLANCE: "gemini-3-flash-preview",       // Vision capabilities  
     LOGISTICS: "gemini-3-flash-preview",          // Grounding support
-    REASONING: "gemini-3-flash-preview",        // Deep research/reporting
-    THINKING: "gemini-2.0-flash-thinking-exp",  // Dedicated reasoning model
+    REASONING: "gemini-3-pro-preview",        // Deep research/reporting
 } as const;

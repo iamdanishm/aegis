@@ -108,6 +108,38 @@ export function MissionReportModal() {
                                 </div>
                             </div>
 
+                            {/* AGENT AUDIT LOG (Detailed) */}
+                            {report.agent_audit_log && report.agent_audit_log.length > 0 && (
+                                <div className="space-y-4 break-before-page">
+                                    <h3 className="text-sm font-bold uppercase tracking-widest border-b border-zinc-300 pb-2 text-zinc-500 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                                        Chain of Reasoning Audit Log
+                                    </h3>
+                                    <div className="overflow-hidden border border-zinc-300 rounded bg-white font-mono text-[10px]">
+                                        <table className="w-full">
+                                            <thead className="bg-zinc-100 text-zinc-500 border-b border-zinc-200">
+                                                <tr>
+                                                    <th className="text-left px-3 py-2">Time</th>
+                                                    <th className="text-left px-3 py-2">Agent</th>
+                                                    <th className="text-left px-3 py-2">Action</th>
+                                                    <th className="text-left px-3 py-2">Detail</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-zinc-100">
+                                                {report.agent_audit_log.map((log, i) => (
+                                                    <tr key={i} className="hover:bg-zinc-50">
+                                                        <td className="px-3 py-1.5 text-zinc-400 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}.{new Date(log.timestamp).getMilliseconds()}</td>
+                                                        <td className="px-3 py-1.5 font-bold text-zinc-700">{log.agent}</td>
+                                                        <td className="px-3 py-1.5 text-blue-800 font-semibold">{log.action}</td>
+                                                        <td className="px-3 py-1.5 text-zinc-600 break-words max-w-[300px]">{log.detail}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Incidents Log Table */}
                             {report.incidents_log && report.incidents_log.length > 0 && (
                                 <div className="space-y-4">

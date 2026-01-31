@@ -90,6 +90,18 @@ function TacticalMarker({ incident }: { incident: Incident }) {
                         </span>
                     </div>
 
+                    {/* Address / Location Target */}
+                    <div className="mb-2 pb-2 border-b border-zinc-700/50">
+                        <div className="flex items-start gap-1.5 text-zinc-300">
+                            <div className="mt-0.5 text-emerald-500">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            </div>
+                            <span className="text-[10px] font-mono leading-tight">
+                                {incident.location?.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
+                            </span>
+                        </div>
+                    </div>
+
                     {/* Content */}
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-center text-xs">
@@ -125,7 +137,7 @@ function TacticalMarker({ incident }: { incident: Incident }) {
                     </div>
                 </div>
             </Popup>
-        </Marker>
+        </Marker >
     );
 }
 

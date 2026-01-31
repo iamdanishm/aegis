@@ -36,6 +36,8 @@ export interface Incident {
     suggested_route?: {
         coordinates: [number, number][];
     };
+    requires_logistics?: boolean; // Agentic Handoff
+    suggested_asset_type?: string;
 
     // Responder Action Fields
     responder_status?: "PENDING" | "ACKNOWLEDGED" | "EN_ROUTE" | "ON_SCENE" | "RESOLVED";
@@ -43,6 +45,32 @@ export interface Incident {
     acknowledged_by?: string;         // Unit identifier (e.g., "MARINE-DELTA-01")
     backup_requested?: boolean;       // Flag for backup request
     backup_requested_at?: string;     // ISO timestamp when backup was requested
+    verification_status?: "VERIFIED" | "UNVERIFIED" | "HISTORICAL" | "PENDING"; // Grounding check
+
+    // Forensic Fields
+    signal_metadata?: {
+        cell_tower_id?: string;
+        ip_address?: string;
+        estimated_radius_meters?: number;
+    };
+    location_source?: "SPOKEN" | "VISUAL_LANDMARK" | "SIGNAL_TRIANGULATION" | "MANUAL_TRACE_REQUIRED" | "UNKNOWN" | "GPS_DEFAULT";
+    manual_trace_required?: boolean;
+
+    // Conflict Resolution
+    location_ambiguity?: boolean;
+    conflicting_location?: {
+        address: string;
+        lat: number;
+        lng: number;
+        source: string;
+    };
+}
+
+export interface AgentAuditLog {
+    agent: string;
+    action: string;
+    detail: string;
+    timestamp: string;
 }
 
 export interface AgentResponse {
@@ -59,6 +87,8 @@ export interface MissionReport {
     performance_score: number; // 0-100
     officer_notes: string;
     generated_at: string;
+    // Granular Agent Actions
+    agent_audit_log?: AgentAuditLog[];
     // Detailed incident log
     incidents_log: {
         id: string;

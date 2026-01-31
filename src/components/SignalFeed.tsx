@@ -3,12 +3,21 @@
 import { useState } from "react";
 import { useSimulationStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { type Incident } from "@/lib/types";
+import { type Incident } from "@/lib/types"; // Restored
+import { motion, AnimatePresence } from "framer-motion";
 import {
-    Mic, Video, FileText, Radio,
-    MapPin, Play, ExternalLink,
-    ChevronDown, ChevronUp, AlertCircle,
-    Activity, Send, Loader2
+    Mic, Video, FileText, Radio, // Restored Mic, FileText, Video
+    MapPin, Play, ExternalLink, // Restored ExternalLink
+    ChevronDown, ChevronUp, AlertCircle, // Restored Chevrons
+    Activity, Send, Loader2, // Restored Send, Loader2
+    CheckCircle2,
+    Volume2,
+    Shield,
+    Clock,
+    Users,
+    Maximize2,
+    Pause,
+    AlertTriangle // Kept new import
 } from "lucide-react";
 import { CommanderControls } from "./CommanderControls";
 
@@ -249,6 +258,33 @@ export function SignalFeed({ className }: { className?: string }) {
 
                                 {/* Footer Tags */}
                                 <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                    {/* FORENSICS BADGES */}
+                                    {incident.manual_trace_required && (
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-red-600/20 text-red-500 border border-red-500/50 animate-pulse flex items-center gap-1 shadow-[0_0_10px_rgba(220,38,38,0.4)]">
+                                            <AlertCircle className="w-3 h-3" />
+                                            SIGNAL LOST
+                                        </span>
+                                    )}
+                                    {incident.location_source === "VISUAL_LANDMARK" && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+                                            <MapPin className="w-3 h-3" />
+                                            VISUAL FORENSICS match
+                                        </span>
+                                    )}
+                                    {incident.location_source === "SIGNAL_TRIANGULATION" && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+                                            <Activity className="w-3 h-3" />
+                                            SIGNAL TRIANGULATION
+                                        </span>
+                                    )}
+                                    {/* CONFLICT BADGE */}
+                                    {incident.location_ambiguity && (
+                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-orange-500/20 text-orange-400 border border-orange-500/50 flex items-center gap-1 animate-pulse">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            LOCATION CONFLICT
+                                        </span>
+                                    )}
+
                                     {/* PROTOCOL ZERO BADGE - Visible when collapsed */}
                                     {incident.requires_human_auth && incident.auth_status === "PENDING" && (
                                         <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-amber-500 text-black animate-pulse flex items-center gap-1 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
@@ -319,6 +355,27 @@ export function SignalFeed({ className }: { className?: string }) {
                                             </button>
                                         )}
                                     </div>
+
+                                    {/* TARGET LOCATION DISPLAY */}
+                                    {hasLocation && (
+                                        <div className={cn(
+                                            "p-2 rounded border text-[10px] font-mono flex items-start gap-2",
+                                            incident.location_ambiguity ? "bg-orange-500/10 border-orange-500/30 text-orange-400" : "bg-zinc-900/50 border-zinc-800 text-zinc-300"
+                                        )}>
+                                            <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", incident.location_ambiguity && "animate-pulse")} />
+                                            <div>
+                                                <span className="block font-bold opacity-70 mb-0.5">
+                                                    {incident.location_ambiguity ? "CONFIRMED TARGET (GPS OVERRIDE):" : "INCIDENT LOCATION:"}
+                                                </span>
+                                                <span className="text-white/90">
+                                                    {incident.location?.address}
+                                                </span>
+                                                <div className="text-[9px] opacity-50 mt-0.5">
+                                                    {incident.location?.lat.toFixed(6)}, {incident.location?.lng.toFixed(6)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Full Details */}
                                     <div className="space-y-2">

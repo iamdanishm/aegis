@@ -68,6 +68,7 @@ function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) 
 export function ReasoningLog({ className }: { className?: string }) {
     const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess } = useSimulationStore();
     const scrollRef = useRef<HTMLDivElement>(null);
+    const thoughtsRef = useRef<HTMLDivElement>(null);
     const [displayLogs, setDisplayLogs] = useState<string[]>([]);
 
     useEffect(() => {
@@ -86,6 +87,13 @@ export function ReasoningLog({ className }: { className?: string }) {
 
     // Check if there's a pending incident being handled by the Coordinator
     const pendingIncident = incidents.find(i => i.status === "PENDING");
+
+    // Auto-scroll thoughts
+    useEffect(() => {
+        if (thoughtsRef.current) {
+            thoughtsRef.current.scrollTop = thoughtsRef.current.scrollHeight;
+        }
+    }, [rawThinkingProcess, latestTriaged, pendingIncident, displayLogs]);
 
     return (
         <div className={cn("flex flex-col gap-2 p-4 bg-zinc-950 border border-zinc-800 rounded-lg h-full font-mono text-xs", className)}>
@@ -177,7 +185,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                         {/* Decorative corner */}
                         <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-cyan-500/10 to-transparent" />
 
-                        <div className="text-cyan-400/90 text-[11px] leading-relaxed max-h-[300px] overflow-y-auto space-y-3 custom-scrollbar">
+                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed max-h-[300px] overflow-y-auto space-y-3 custom-scrollbar">
                             {pendingIncident && (
                                 <div className="animate-pulse flex flex-col gap-2">
                                     {rawThinkingProcess ? (

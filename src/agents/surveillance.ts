@@ -10,11 +10,26 @@ import path from "path";
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
 // The Surveillance Agent analyzes drone footage (frames or videos) to assess damage.
-export async function analyzeSurveillance(incident: Incident): Promise<Partial<Incident>> {
+// The Surveillance Agent analyzes drone footage (frames or videos) to assess damage.
+export async function analyzeSurveillance(incident: Incident, onThought?: (thought: string) => void): Promise<Partial<Incident>> {
     // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {
         console.log(`[SURVEILLANCE] [SIMULATION MODE] Returning mock response for ${incident.id}`);
         const mock = MOCK_RESPONSES[incident.id];
+
+        if (onThought) {
+            const mockThoughts = [
+                "Scanning frame for flood markers...",
+                "Identifying structural cracks...",
+                "Estimating people count...",
+                "Triangulating location from landmarks..."
+            ];
+            for (const t of mockThoughts) {
+                onThought(t + "\n");
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+
         if (mock) {
             return {
                 ...mock,
@@ -38,6 +53,8 @@ export async function analyzeSurveillance(incident: Incident): Promise<Partial<I
     // Load the actual video/media file for analysis
     let mediaData = "";
     let mimeType = "video/mp4"; // Default
+    // ... (Keep existing file loading logic) ...
+    // Note: I am not changing lines 42-65, so I will start the replacement from before the prompt construction
 
     if (incident.raw_input.startsWith("/")) {
         const filePath = path.join(process.cwd(), "public", incident.raw_input);
@@ -63,30 +80,38 @@ export async function analyzeSurveillance(incident: Incident): Promise<Partial<I
         mediaData = incident.raw_input.replace(/^data:video\/\w+;base64,/, "");
     }
 
-    const prompt = `
+    const systemInstruction = `
     You are an AI Surveillance Officer. You are analyzing a drone video stream or image feed.
+
+    ANALYSIS TASKS:
+    1. VISUAL FORENSICS (CRITICAL):
+       - If coordinates are MISSING (0,0) or unknown, you MUST analyze the visual frame for LOCATION CLUES.
+       - Look for: Street Signs, Landmarks, Business Names, License Plates, distinctive geography.
+       - If a clue is found, use Google Search Grounding to find its address.
+       - Output the inferred location in 'extracted_address', 'extracted_lat', 'extracted_lng'.
+       - Set 'location_source' to "VISUAL_LANDMARK".
     
+    2. Analyze the video frame/image for structural damage and flood levels.
+    3. Determine the PRIORITY and CATEGORY.
+    4. Provide a REASONING TRACE.
+    5. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment (Boats, Helicopters, etc.).
+       - If YES: Set "requires_logistics" to true and suggest an asset type (e.g. "Marine Rescue").
+       - If NO: Set "requires_logistics" to false.
+    `;
+
+    const userPrompt = `
     TACTICAL CONTEXT:
     ID: ${incident.id}
     Location: ${incident.location.address}
     
-    ANALYSIS TASKS:
-    1. Analyze the attached video/media carefully.
-    2. Estimate the flood level (Low, Moderate, Severe, Critical).
-    3. Identify structural damage and people in danger.
-    5. LOCATION VERIFICATION: Can you identify the specific location or landmark from visual cues?
-       - If yes, extract it as specific_location_name.
-       - Estimate lat/long if possible based on landmarks.
-    6. PEOPLE ANALYSIS: Estimate number of people and their safety status (SAFE, TRAPPED, INJURED, DANGER).
-    7. Identify the Category (e.g. Natural Disaster, Accident, Fire, Flood, etc).
-    8. Provide a detailed reasoning trace.
-  `;
+    Analyze the attached media feed.
+    `;
 
     try {
-        console.log(`[SURVEILLANCE] Sending request to Gemini with actual media data...`);
+        console.log(`[SURVEILLANCE] Sending request to Gemini (Stream)...`);
 
         const contents: any[] = [
-            { text: prompt },
+            { text: userPrompt },
             {
                 inlineData: {
                     mimeType: mimeType,
@@ -95,10 +120,11 @@ export async function analyzeSurveillance(incident: Incident): Promise<Partial<I
             }
         ];
 
-        const response = await ai.models.generateContent({
+        const resultStream = await ai.models.generateContentStream({
             model: MODELS.SURVEILLANCE,
             contents: contents,
             config: {
+                systemInstruction: systemInstruction,
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -107,18 +133,64 @@ export async function analyzeSurveillance(incident: Incident): Promise<Partial<I
                         structural_damage: { type: Type.STRING },
                         people_count_estimate: { type: Type.NUMBER },
                         reasoning_trace: { type: Type.STRING },
-                        specific_location_name: { type: Type.STRING, description: "Identified landmark or specific address from visual cues, or null." },
-                        estimated_lat: { type: Type.NUMBER, description: "Estimated latitude of identified landmark, or null." },
-                        estimated_lng: { type: Type.NUMBER, description: "Estimated longitude of identified landmark, or null." },
-                        category: { type: Type.STRING, description: "Category of the incident (Natural Disaster, Accident, etc)" },
-                        people_safety: { type: Type.STRING, description: "Safety status of people: SAFE, TRAPPED, INJURED, DANGER, or NONE" },
+                        extracted_address: { type: Type.STRING, description: "Identified visual landmark address or null." },
+                        extracted_lat: { type: Type.NUMBER },
+                        extracted_lng: { type: Type.NUMBER },
+                        category: { type: Type.STRING },
+                        people_safety: { type: Type.STRING },
+                        requires_logistics: { type: Type.BOOLEAN },
+                        suggested_asset_type: { type: Type.STRING },
+                        location_source: { type: Type.STRING, enum: ["VISUAL_LANDMARK", "UNKNOWN"] }
                     },
-                    required: ["flood_level", "structural_damage", "reasoning_trace", "category"],
+                    required: ["flood_level", "structural_damage", "reasoning_trace", "category", "requires_logistics"],
                 },
+                thinkingConfig: {
+                    includeThoughts: true,
+                    thinkingLevel: "HIGH" as any
+                }
             },
         });
 
-        const result = JSON.parse(response.text || "{}");
+        // Helper for cinematic typing effect
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+        let fullText = "";
+        let collectedThoughts = "";
+
+        for await (const chunk of resultStream) {
+            const parts = chunk.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.thought) {
+                    collectedThoughts += part.text;
+                    if (onThought && part.text) {
+                        // CINEMATIC SMOOTHING:
+                        const chunkText = part.text;
+                        for (let i = 0; i < chunkText.length; i += 5) {
+                            onThought(chunkText.slice(i, i + 5));
+                            await delay(15);
+                        }
+                    }
+                } else if (part.text) {
+                    fullText += part.text;
+                }
+            }
+        }
+
+        console.log(`[SURVEILLANCE] Raw text: ${fullText.substring(0, 200)}...`);
+
+        let result;
+        try {
+            const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+            const jsonStr = jsonMatch ? jsonMatch[0] : fullText;
+            result = JSON.parse(jsonStr);
+        } catch (e) {
+            console.error(`[SURVEILLANCE] JSON Parsing failed:`, e);
+            throw new Error("Failed to parse surveillance response");
+        }
+
+        // Store raw thoughts in custom field if needed (though mostly for streaming)
+        (result as any).raw_thoughts = collectedThoughts.trim() || result.reasoning_trace;
+
         console.log(`[SURVEILLANCE] Result for ${incident.id}: Flood ${result.flood_level}, Damage: ${result.structural_damage}`);
 
         // Calculate Priority
@@ -157,15 +229,19 @@ export async function analyzeSurveillance(incident: Incident): Promise<Partial<I
             reasoning_trace: result.reasoning_trace,
             category: result.category || "Surveillance Alert",
             priority: calculatedPriority as any, // Cast to Priority type
-            status: "TRIAGED"
+            status: "TRIAGED",
+            requires_logistics: result.requires_logistics,
+            suggested_asset_type: result.suggested_asset_type,
+            people_safety: result.people_safety,
+            location_source: result.location_source
         };
 
-        if (result.specific_location_name && result.estimated_lat && result.estimated_lng) {
-            console.log(`[SURVEILLANCE] VISUAL LOCATION MATCH: ${result.specific_location_name} (${result.estimated_lat}, ${result.estimated_lng})`);
+        if (result.extracted_address && result.extracted_lat && result.extracted_lng) {
+            console.log(`[SURVEILLANCE] 📍 VISUAL FORENSICS SUCCESS: Found ${result.extracted_address}`);
             responseObj.location = {
-                lat: result.estimated_lat,
-                lng: result.estimated_lng,
-                address: result.specific_location_name
+                lat: result.extracted_lat,
+                lng: result.extracted_lng,
+                address: result.extracted_address
             };
         }
 

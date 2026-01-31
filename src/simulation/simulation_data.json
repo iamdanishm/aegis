@@ -1,122 +1,13 @@
 [
     {
-        "id": "EVT-AUDIO-001",
-        "trigger_time_offset": 2,
+        "id": "EVT-AUDIO-002",
+        "trigger_time_offset": 1,
         "type": "AUDIO",
         "raw_input": "/Simulation Data/Audios/audio1.mp3",
-        "location": {
-            "lat": null,
-            "lng": null,
-            "address": null
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-AUDIO-002",
-        "trigger_time_offset": 8,
-        "type": "AUDIO",
-        "raw_input": "/Simulation Data/Audios/audio2.mp3",
         "location": {
             "lat": 40.7128,
             "lng": -74.0060,
             "address": "Manhattan, New York, USA"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-VIDEO-001",
-        "trigger_time_offset": 15,
-        "type": "VIDEO",
-        "raw_input": "/Simulation Data/Videos/v1.mp4",
-        "location": {
-            "lat": 19.0760,
-            "lng": 72.8777,
-            "address": "Marine Drive, Mumbai, India"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-VIDEO-002",
-        "trigger_time_offset": 22,
-        "type": "VIDEO",
-        "raw_input": "/Simulation Data/Videos/v2.mov",
-        "location": {
-            "lat": 43.6532,
-            "lng": -79.3832,
-            "address": "Downtown Toronto, Canada"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-VIDEO-003",
-        "trigger_time_offset": 30,
-        "type": "VIDEO",
-        "raw_input": "/Simulation Data/Videos/v3.mov",
-        "location": {
-            "lat": 51.5074,
-            "lng": -0.1278,
-            "address": "Westminster, London, UK"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-VIDEO-004",
-        "trigger_time_offset": 38,
-        "type": "VIDEO",
-        "raw_input": "/Simulation Data/Videos/v4.mp4",
-        "location": {
-            "lat": 35.6762,
-            "lng": 139.6503,
-            "address": "Shibuya, Tokyo, Japan"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-CRITICAL-AUTH-001",
-        "trigger_time_offset": 45,
-        "type": "TEXT",
-        "raw_input": "CRITICAL DAM FAILURE IMMINENT AT SECTOR 7. REQUESTING IMMEDIATE DEPLOYMENT OF LAST REMAINING HEAVY LIFT HELICOPTER FOR EVACUATION. THIS WILL LEAVE SECTOR 3 VULNERABLE.",
-        "location": {
-            "lat": 36.1699,
-            "lng": -115.1398,
-            "address": "Hoover Dam, Nevada, USA"
-        },
-        "status": "PENDING",
-        "requires_human_auth": true
-    },
-    {
-        "id": "EVT-TEXT-ES-001",
-        "trigger_time_offset": 50,
-        "type": "TEXT",
-        "raw_input": "Ayuda! El agua está subiendo en el sótano. Mi abuela no puede caminar.",
-        "location": {
-            "lat": 51.5074,
-            "lng": -0.1278,
-            "address": "London, UK"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-TEXT-HI-001",
-        "trigger_time_offset": 55,
-        "type": "TEXT",
-        "raw_input": "Building gir gaya hai! Bahut log phase hue hain sector 4 mein.",
-        "location": {
-            "lat": 51.5074,
-            "lng": -0.1278,
-            "address": "London, UK"
-        },
-        "status": "PENDING"
-    },
-    {
-        "id": "EVT-TEXT-FR-001",
-        "trigger_time_offset": 60,
-        "type": "TEXT",
-        "raw_input": "Incendie incontrôlable près de la station service!",
-        "location": {
-            "lat": null,
-            "lng": null,
-            "address": null
         },
         "status": "PENDING"
     }

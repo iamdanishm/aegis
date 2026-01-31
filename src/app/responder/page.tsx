@@ -37,6 +37,11 @@ export default function ResponderPage() {
 
     // Intelligent Filtering: Only show TRIAGED incidents that match the active role
     const filteredIncidents = incidents.filter(incident => {
+        // Critical: Voice of God / Command Overrides must ALWAYS act as a global broadcast
+        if (incident.type === "COMMAND" || incident.is_override || incident.category === "COMMAND_OVERRIDE") {
+            return incident.status !== "PENDING";
+        }
+
         if (incident.status === "PENDING") return false;
         return incident.required_asset === activeRole;
     });

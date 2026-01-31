@@ -105,6 +105,10 @@ export function useDisasterSimulation() {
                                         processed = { ...incident, ...event.data };
                                     } else if (event.type === "error") {
                                         console.error("Stream Error:", event.message);
+                                    } else if (event.type === "audit_log") {
+                                        // New: Capture granular agent logs
+                                        addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
+                                        useSimulationStore.getState().addAgentAuditLog(event.entry);
                                     }
                                 } catch (e) {
                                     console.warn("JSON Parse Error in stream chunk", line);

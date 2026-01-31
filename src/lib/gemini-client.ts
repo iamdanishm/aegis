@@ -20,7 +20,7 @@ console.log("[GEMINI-CLIENT] Initialized with models:", MODELS);
  * If the model provides a signature, it validates/uses it.
  * Otherwise, it falls back to a server-side HMAC for integrity.
  */
-export function generateThoughtSignature(reasoning: string, priority: string, timestamp: number, modelSignature?: string): string {
+export function generateThoughtSignature(reasoning: string, priority: string = "UNKNOWN", timestamp: number = Date.now(), modelSignature?: string): string {
     if (modelSignature) {
         // In a real scenario, we might verify this against a public key or similar
         // For now, if the model gave us a signature, we trust it came from the trusted execution environment

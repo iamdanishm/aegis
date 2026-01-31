@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { type Incident, type MissionReport } from "./types";
+import { type Incident, type MissionReport, type AgentAuditLog } from "./types";
 
 interface SimulationState {
     time: number;
     isPlaying: boolean;
     incidents: Incident[];
     logs: string[];
+    agentAuditLogs: AgentAuditLog[]; // New: Detailed Audit Trail
 
     setTime: (time: number) => void;
     incrementTime: () => void;
@@ -14,6 +15,7 @@ interface SimulationState {
     addIncident: (incident: Incident) => void;
     updateIncident: (id: string, updates: Partial<Incident>) => void;
     addLog: (log: string) => void;
+    addAgentAuditLog: (log: AgentAuditLog) => void;
     isMockMode: boolean;
     setIsMockMode: (isMockMode: boolean) => void;
     focusedIncidentId: string | null;
@@ -55,12 +57,14 @@ const initialState = {
     isReportOpen: false,
     isGeneratingReport: false,
     rawThinkingProcess: null,
+    agentAuditLogs: [] as AgentAuditLog[],
 };
 
 export const useSimulationStore = create<SimulationState>()(
     persist(
         (set) => ({
             ...initialState,
+            agentAuditLogs: initialState.agentAuditLogs,
 
             setTime: (time) => set({ time }),
             incrementTime: () => set((state) => ({ time: state.time + 1 })),
@@ -78,6 +82,11 @@ export const useSimulationStore = create<SimulationState>()(
             })),
 
             addLog: (log) => set((state) => ({ logs: [...state.logs, log] })),
+
+            addAgentAuditLog: (log) => set((state) => {
+                // Also persist to the Mission Report if it exists, or prepare for it
+                return { agentAuditLogs: [...state.agentAuditLogs, log] };
+            }),
 
             setIsMockMode: (isMockMode) => set({ isMockMode }),
 
@@ -111,6 +120,7 @@ export const useSimulationStore = create<SimulationState>()(
                 isPlaying: state.isPlaying,
                 incidents: state.incidents,
                 logs: state.logs,
+                agentAuditLogs: state.agentAuditLogs,
                 isMockMode: state.isMockMode,
                 isSimulationComplete: state.isSimulationComplete,
                 report: state.report,
