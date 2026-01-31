@@ -121,7 +121,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     - verification_status: "VERIFIED" | "UNVERIFIED" | "HISTORICAL".
     - routing_notes: Explanation of the route, verification findings, and any hazards.
     - road_status: Summary of road conditions found using Grounding.
-    - suggested_route: { coordinates: [[lat, lng], ...] } -> Must include 5-10 lat/lng pairs representing a path from a hypothetical base (approx 5km North-West of incident) to the incident location.
+
     `;
 
     const userPrompt = `
@@ -207,7 +207,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
             assigned_assets: [result.recommended_asset],
             required_asset: (result.required_asset_type || "General").toUpperCase() as any,
             reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes,
-            suggested_route: result.suggested_route,
+
             verification_status: result.verification_status || "UNVERIFIED"
         };
 

@@ -10,7 +10,6 @@ import path from "path";
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
 // The Surveillance Agent analyzes drone footage (frames or videos) to assess damage.
-// The Surveillance Agent analyzes drone footage (frames or videos) to assess damage.
 export async function analyzeSurveillance(incident: Incident, onThought?: (thought: string) => void): Promise<Partial<Incident>> {
     // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {

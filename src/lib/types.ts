@@ -33,9 +33,7 @@ export interface Incident {
     grounding_queries?: string[]; // Google Search terms used
     required_asset?: 'AIR' | 'MARINE' | 'GROUND' | 'General';
     detected_language?: string;
-    suggested_route?: {
-        coordinates: [number, number][];
-    };
+
     requires_logistics?: boolean; // Agentic Handoff
     suggested_asset_type?: string;
 
