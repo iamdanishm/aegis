@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useSimulationStore } from "@/lib/store";
 import simulationData from "@/simulation/simulation_data.json";
 import { coordinateIncident } from "@/agents/coordinator";
+import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
 
 export function useDisasterSimulation() {
@@ -103,12 +104,21 @@ export function useDisasterSimulation() {
                     const mockData = MOCK_RESPONSES[incidentToProcess.id];
 
                     if (mockData) {
+                        // Set agent info for UI feedback in mock mode
+                        const targetAgent = incidentToProcess.type === "VIDEO" ? "Surveillance Agent" : "Triage Agent";
+                        const targetModel = incidentToProcess.type === "VIDEO" ? MODELS.SURVEILLANCE : MODELS.TRIAGE;
+
+                        useSimulationStore.getState().setActiveAgent(targetAgent);
+                        useSimulationStore.getState().setActiveModel(targetModel);
+
                         // Simulate processing delay
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                         const processed = { ...incidentToProcess, ...mockData, status: "TRIAGED" }; // Ensure final status
 
                         // Release lock BEFORE update to allow effect re-trigger for next item
                         isProcessingRef.current = false;
+                        useSimulationStore.getState().setActiveAgent(null);
+                        useSimulationStore.getState().setActiveModel(null);
                         storeUpdateIncident(incidentToProcess.id, processed as any);
 
                         addLog(`[${time}s] [COORDINATOR] Flow complete for ${incidentToProcess.id}.`);
@@ -153,6 +163,9 @@ export function useDisasterSimulation() {
                                 if (event.type === "thought") {
                                     fullThinking += event.content;
                                     setRawThinkingProcess(fullThinking);
+                                } else if (event.type === "agent_info") {
+                                    useSimulationStore.getState().setActiveAgent(event.agent);
+                                    useSimulationStore.getState().setActiveModel(event.model);
                                 } else if (event.type === "result") {
                                     processed = { ...incidentToProcess, ...event.data };
                                 } else if (event.type === "error") {
@@ -169,6 +182,8 @@ export function useDisasterSimulation() {
 
                     // Finalize
                     setRawThinkingProcess(null); // Clear thinking state
+                    useSimulationStore.getState().setActiveAgent(null);
+                    useSimulationStore.getState().setActiveModel(null);
 
                     if (!processed.requires_human_auth || processed.auth_status === "APPROVED") {
                         addLog(`[${time}s] [COORDINATOR] Analysis complete for ${incidentToProcess.id}.`);
@@ -195,6 +210,8 @@ export function useDisasterSimulation() {
                 console.error(e);
                 addLog(`[${time}s] [COORDINATOR] Error processing ${incidentToProcess.id}: ${e.message || "Unknown error"}`);
                 setRawThinkingProcess(null);
+                useSimulationStore.getState().setActiveAgent(null);
+                useSimulationStore.getState().setActiveModel(null);
 
                 isProcessingRef.current = false;
                 storeUpdateIncident(incidentToProcess.id, { status: "TRIAGED" } as any);

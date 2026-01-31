@@ -66,7 +66,7 @@ function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) 
 }
 
 export function ReasoningLog({ className }: { className?: string }) {
-    const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess } = useSimulationStore();
+    const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess, activeAgent, activeModel } = useSimulationStore();
     const scrollRef = useRef<HTMLDivElement>(null);
     const thoughtsRef = useRef<HTMLDivElement>(null);
     const [displayLogs, setDisplayLogs] = useState<string[]>([]);
@@ -143,7 +143,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                         </h4>
                         <div className="ml-auto flex items-center gap-2">
                             <span className="text-[9px] text-zinc-500 font-mono">
-                                MODEL: GEMINI 3 AUDITOR
+                                MODEL: {MODELS.REASONING}
                             </span>
                         </div>
                     </div>
@@ -164,11 +164,13 @@ export function ReasoningLog({ className }: { className?: string }) {
                             <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
                         </div>
                         <h4 className="text-zinc-300 font-bold uppercase text-[10px] tracking-widest">
-                            {pendingIncident ? "Coordinator Active" : "AI Reasoning Trace"}
+                            {pendingIncident ? (activeAgent || "Coordinator Active") : "AI Reasoning Trace"}
                         </h4>
                         <div className="ml-auto flex items-center gap-2">
                             <span className="text-[9px] text-zinc-500 font-mono">
-                                {pendingIncident ? "MODELS.COORDINATOR" : (latestTriaged?.type === "VIDEO" ? MODELS.SURVEILLANCE : MODELS.TRIAGE)}
+                                {pendingIncident
+                                    ? (activeModel || MODELS.COORDINATOR)
+                                    : (latestTriaged?.type === "VIDEO" ? MODELS.SURVEILLANCE : MODELS.TRIAGE)}
                             </span>
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                                 {pendingIncident?.id || latestTriaged?.id}
@@ -193,7 +195,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                                             <div className="h-2 w-3/4 bg-zinc-800 rounded"></div>
                                             <div className="h-2 w-1/2 bg-zinc-800 rounded"></div>
                                             <div className="text-[10px] text-zinc-500 italic mt-2">
-                                                [COORDINATOR] Routing signal to specialized agents...
+                                                [{activeAgent?.toUpperCase() || "COORDINATOR"}] Analyzing signal...
                                             </div>
                                         </>
                                     )}

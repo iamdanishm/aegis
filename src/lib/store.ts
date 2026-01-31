@@ -38,6 +38,11 @@ interface SimulationState {
     rawThinkingProcess: string | null;
     setRawThinkingProcess: (content: string | null) => void;
 
+    activeAgent: string | null;
+    setActiveAgent: (agent: string | null) => void;
+    activeModel: string | null;
+    setActiveModel: (model: string | null) => void;
+
     // Reset function to clear state
     resetSimulation: () => void;
 }
@@ -58,6 +63,8 @@ const initialState = {
     isGeneratingReport: false,
     rawThinkingProcess: null,
     agentAuditLogs: [] as AgentAuditLog[],
+    activeAgent: null,
+    activeModel: null,
 };
 
 export const useSimulationStore = create<SimulationState>()(
@@ -108,6 +115,9 @@ export const useSimulationStore = create<SimulationState>()(
             setIsGeneratingReport: (isGeneratingReport) => set({ isGeneratingReport }),
 
             setRawThinkingProcess: (rawThinkingProcess) => set({ rawThinkingProcess }),
+
+            setActiveAgent: (activeAgent) => set({ activeAgent }),
+            setActiveModel: (activeModel) => set({ activeModel }),
 
             resetSimulation: () => set(initialState),
         }),

@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
                 const initEvent = { type: "thought", content: "Coordinator: Analyzing incident inputs..." };
                 controller.enqueue(encoder.encode(JSON.stringify(initEvent) + "\n"));
 
+                const agentInfo = { type: "agent_info", agent: "Coordinator", model: MODELS.COORDINATOR };
+                controller.enqueue(encoder.encode(JSON.stringify(agentInfo) + "\n"));
+
                 // Immediate visual feedback to mask cold start
                 const connectEvent = { type: "thought", content: " [SYSTEM] Connecting to Aegis Satellite Network..." };
                 controller.enqueue(encoder.encode(JSON.stringify(connectEvent) + "\n"));
@@ -110,7 +113,7 @@ export async function POST(req: NextRequest) {
                         // The routing decision tells us WHO to call. Now we must actually CALL them.
                         // This logic was missing previously.
 
-                        let agentResult: any = {}; // Use any to access custom fields like raw_thoughts
+                        const targetAgent = routingResult.target_agent;
 
                         // Define a callback to stream thoughts from sub-agents in REAL-TIME
                         const streamThought = (text: string) => {
@@ -118,15 +121,18 @@ export async function POST(req: NextRequest) {
                             controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                         };
 
-                        if (routingResult.target_agent === "TRIAGE") {
-                            // Import dynamically to avoid side-effects or circular deps if any
+                        let agentResult: any = {};
+
+                        if (targetAgent === "TRIAGE") {
+                            controller.enqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Triage Agent", model: MODELS.TRIAGE }) + "\n"));
                             const { triageIncident } = await import("@/agents/triage");
-                            // Pass the stream callback!
                             agentResult = await triageIncident(incident, streamThought);
-                        } else if (routingResult.target_agent === "SURVEILLANCE") {
+                        } else if (targetAgent === "SURVEILLANCE") {
+                            controller.enqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Surveillance Agent", model: MODELS.SURVEILLANCE }) + "\n"));
                             const { analyzeSurveillance } = await import("@/agents/surveillance");
                             agentResult = await analyzeSurveillance(incident, streamThought);
-                        } else if (routingResult.target_agent === "LOGISTICS") {
+                        } else if (targetAgent === "LOGISTICS") {
+                            controller.enqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Logistics Agent", model: MODELS.LOGISTICS }) + "\n"));
                             const { manageLogistics } = await import("@/agents/logistics");
                             agentResult = await manageLogistics(incident, streamThought);
                         }

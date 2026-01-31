@@ -1,0 +1,120 @@
+[TRIAGE] ========================================
+[TRIAGE] Analyzing incident EVT-AUDIO-002...
+[TRIAGE] Using model: gemini-3-pro-preview
+[TRIAGE] Input type: AUDIO
+[TRIAGE] Raw input: /Simulation Data/Audios/audio1.mp3...
+[TRIAGE] Attached audio file: /Users/iamdanishm/Documents/Dev/Projects/Hackathon-Projects/Gemini-Hackathon/Project Aegis/aegis/public/Simulation Data/Audios/audio1.mp3
+[TRIAGE] Sending request to Gemini (Stream)...
+[TRIAGE] Payload (truncated): [{"text":"\n    INCIDENT DATA:\n    ID: EVT-AUDIO-002\n    Type: AUDIO\n    Signal Metadata: \"NONE\"\n    Raw Input: /Simulation Data/Audios/audio1.mp3...\n    \n    Analyze this signal and provide your assessment in JSON format.\n    "},{"inlineData":{"mimeType":"audio/mpeg","data":"SUQzBAAAAAECBVRTU0UAAAAOAAADTGF2ZjYwLjE2LjEwMEdFT0IAAQFjAAADYXBwbGljYXRpb24veC1jMnBhLW1hbmlmZXN0LXN0b3JlAGMycGEAYzJwYSBtYW5pZmVzdCBzdG9yZQAAAECnanVtYgAAAB5qdW1kYzJwYQARABCAAACqADibcQNjMnBhAAAAQIFqdW1iAAAAR2p1bWRjMm...
+[TRIAGE] Response stream started
+[TRIAGE] Raw text: 
+{
+  "priority": "HIGH",
+  "category": "FLOOD_RESCUE",
+  "reasoning_trace": "1. LOCATION METHODOLOGY: Extracted spoken address '42 Oak Street'. 2. VERIFICATION: Google Search for '42 Oak Street flood' and 'current major flooding Oak Street' yielded results for Somerset (UK), Burnet (TX), and infrastructure projects, but NO definitive real-time match for a victim at '42 Oak Street' with a broken window. 3. CONFLICT: 'Oak Street' is highly common; without City/State or Metadata, the location is amb...
+[TRIAGE] Captured internal monologue (thoughts)
+[TRIAGE] Parsed result:  {
+  priority: 'HIGH',
+  category: 'FLOOD_RESCUE',
+  reasoning_trace: "1. LOCATION METHODOLOGY: Extracted spoken address '42 Oak Street'. 2. VERIFICATION: Google Search for '42 Oak Street flood' and 'current major flooding Oak Street' yielded results for Somerset (UK), Burnet (TX), and infrastructure projects, but NO definitive real-time match for a victim at '42 Oak Street' with a broken window. 3. CONFLICT: 'Oak Street' is highly common; without City/State or Metadata, the location is ambiguous. 4. DECISION: Unable to ground location. Downgraded from CRITICAL to HIGH per 'Unknown Location' protocol. 5. ACTION: Flagged for immediate MANUAL_TRACE to identify caller origin.",
+  location_source: 'SPOKEN',
+  detected_language: 'en',
+  extracted_address: '42 Oak Street',
+  extracted_lat: 0,
+  extracted_lng: 0,
+  manual_trace_required: true,
+  requires_logistics: true,
+  suggested_asset_type: 'WATER_RESCUE_TEAM',
+  raw_thoughts: '**Initiating Signal Analysis**\n' +
+    '\n' +
+    "I've begun analyzing the audio transcript, EVT-AUDIO-002, noting the absence of any signal metadata like GPS data. This forces a focus on purely acoustic analysis for contextualization. I'm prioritizing signal pattern recognition without external data to cross-reference.\n" +
+    '\n' +
+    '\n' +
+    '**Assessing Threat Level**\n' +
+    '\n' +
+    `I've determined the situation is HIGH priority due to the inability to verify the provided address, "42 Oak Street," without location data. While the transcript paints a picture of immediate danger (broken window, child in distress), the lack of definitive location data means "MANUAL_TRACE_REQUIRED" is needed before rescue can be deployed.\n` +
+    '\n' +
+    '\n' +
+    '**Resolving Locational Uncertainty**\n' +
+    '\n' +
+    'I\'m now grappling with the address, "42 Oak Street." The absence of location metadata necessitates a manual trace, triggering `MANUAL_TRACE_REQUIRED`. Despite the prompt\'s instruction to use `googleSearch` to find GPS coordinates from an extracted address, the rule "If NO metadata: MANUAL_TRACE_REQUIRED" takes precedence. I am considering searching for flood events related to the address, but without more context it is too risky to make an assumption. A logical contradiction is also under analysis.\n' +
+    '\n' +
+    '\n' +
+    '**Refining Search Parameters**\n' +
+    '\n' +
+    `I'm now refining my Google search strategy to address the locational ambiguity. My initial queries, like "42 Oak Street," proved too generic and risky. The focus now is on finding recent flood events potentially linked to *any* "Oak Street." My new queries are "major flooding current events Oak Street" and "42 Oak Street flood rescue request recent." If no relevant events are found, I'll adhere to the "Ambiguous/Unknown Location" rule, downgrading priority as instructed.\n` +
+    '\n' +
+    '\n' +
+    '**Initiating Investigation**\n' +
+    '\n' +
+    `I've initiated an investigation into "EVT-AUDIO-002." My initial steps involved searching for related flood events near Oak Street. The search queries included "current major flooding events Oak Street" and "recent flood news 42 Oak Street rescue." The results highlighted flooding mentions on Oak Street in Fort Collins, Somerset UK, and Burnet TX.\n` +
+    '\n' +
+    '\n' +
+    '**Analyzing Location Precision**\n' +
+    '\n' +
+    `I've determined that the initial search failed to pinpoint the location "42 Oak Street" uniquely. The search identified potential matches in Fort Collins, Somerset UK, Burnet TX, and Mountain View CA, but none perfectly matched the urgent "broken window" scenario. Several reports were retrospective or lacked the specific address. The address, "42 Oak Street" is a common address, so the situation demands a "MANUAL_TRACE_REQUIRED" assessment, and I cannot assume the correct city. This requires immediate protocol escalation. The victim is in immediate danger. This is now classified as "CRITICAL" due to the life-threatening circumstances.\n` +
+    '\n' +
+    '\n' +
+    '**Revising Priority and Protocol**\n' +
+    '\n' +
+    `I've downgraded the priority to HIGH, aligning with the "Unknown Location" rule in the Prompt Rules, despite the initial "CRITICAL" assessment due to the potential life-threatening situation. My reasoning trace confirms that, as I'm unable to pinpoint the exact location for rescue dispatch, the highest permissible priority is HIGH. This necessitates a change in the JSON construction to reflect the updated priority and location ambiguity.\n` +
+    '\n' +
+    '**Completing JSON Output**\n' +
+    '\n' +
+    'I\'ve nearly finished the JSON output, and I\'m adding an alert. I\'ve re-reviewed the prompt for coordinate instructions. Since the prompt states, "If you extract an address... you MUST use the `googleSearch` tool to find its precise GPS coordinates," I searched and found numerous "Oak Streets" or partial matches, but no definite "42 Oak Street" related to a current flood. Hence, I cannot supply coordinates, so I\'ll insert a warning to clearly convey this crucial constraint.\n' +
+    '\n' +
+    '\n' +
+    '**Adjusting Spatial Representation**\n' +
+    '\n' +
+    `I'm now refining the JSON output to handle the location data. My safety protocol mandates against guessing, and the schema dictates providing numerical coordinates. Since precise coordinates are unavailable, I'll set the latitude and longitude to 0.0, to satisfy the required number format, and note the address as "42 Oak Street (City Unknown - Trace Required)". This accurately indicates that the location data is present, but spatially useless.\n` +
+    '\n' +
+    '\n' +
+    '**Finalizing Data Integrity**\n' +
+    '\n' +
+    `I'm now integrating all findings into the final JSON output, including priority, category, and location data. I've reconfirmed the priority is HIGH due to the location ambiguity and failure of external grounding to pinpoint a recent flood at "42 Oak Street." The category is FLASH FLOOD / RESCUE, and the methodology reflects the extracted address, unsuccessful search, and the need for a manual trace. The logistics are marked as "Required (Pending Trace)." I've performed a final sanity check of the search results, confirming no specific match to "42 Oak Street" in any relevant context. This reinforces the need for manual verification and justifies the HIGH priority designation.\n` +
+    '\n' +
+    '\n' +
+    '**Refining Location Data**\n' +
+    '\n' +
+    `I'm now integrating new findings from today's search. While investigating "42 Oak Street flood", I found flood reports on Oak Street in Somerset, UK, but nothing specific to the address. "Oak Road" also appeared in a similar context. I'm focusing on "Saturday, January 31, 2026", and saw that the search results *did* return snippets with "2026-01-30" (Somerset Council update). Since I cannot assume "Oak Road" is identical to "Oak Street", I must retain the location data as "42 Oak Street (City Unknown - Trace Required)". This situation remains a priority HIGH.\n` +
+    '\n' +
+    '\n' +
+    '**Analyzing Search Results**\n' +
+    '\n' +
+    `I've checked the search results for "coordinates 42 Oak Street flood," but unfortunately, they haven't yielded a precise event tied to the distress signal. It seems the search provided general city data, like for London, Ontario, Raleigh (aka "City of Oaks"), and Houston. This lack of specificity is the current challenge I am facing in the thought process.\n` +
+    '\n' +
+    '\n' +
+    '**Confirming Location Uncertainty**\n' +
+    '\n' +
+    `I've determined that "42 Oak Street" remains ambiguous after reviewing the initial search. There's no specific flood event tied to that address. My current analysis indicates a "MANUAL_TRACE_REQUIRED" status, so I will now build the JSON response structure. I am setting the "location_ambiguity" to "true," setting the coordinates to 0,0 and the address field to "42 Oak Street [AMBIGUOUS - MANUAL TRACE REQUIRED]". Priority is set to "HIGH" due to the uncertainty, with "requires_logistics" set to true, as the trace will be manual.`
+}
+[TRIAGE] LOCATION FOUND (fallback): 42 Oak Street (0, 0)
+[LOGISTICS] Routing assets for incident EVT-AUDIO-002 at 42 Oak Street...
+[LOGISTICS] Grounding Queries: [
+  'current flood warnings 42 Oak Street January 2026',
+  '"42 Oak Street" flood rescue news',
+  '"42 Oak Street" flood rescue scenario',
+  '"42 Oak Street" flood training'
+]
+ POST /api/coordinate/stream 200 in 95s (compile: 6ms, render: 95s)
+[SURVEILLANCE] ========================================
+[SURVEILLANCE] Analyzing drone footage for incident EVT-VIDEO-001...
+[SURVEILLANCE] Using model: gemini-3-pro-preview
+[SURVEILLANCE] Loaded media: /Users/iamdanishm/Documents/Dev/Projects/Hackathon-Projects/Gemini-Hackathon/Project Aegis/aegis/public/Simulation Data/Videos/v1.mp4 (2.63 MB)
+[SURVEILLANCE] Sending request to Gemini (Stream)...
+[SURVEILLANCE] Raw text: {
+  "flood_level": "None",
+  "structural_damage": "Critical - Massive facade collapse impacting public right-of-way",
+  "reasoning_trace": "The video feed captures a catastrophic structural failure of...
+[SURVEILLANCE] Result for EVT-VIDEO-001: Flood None, Damage: Critical - Massive facade collapse impacting public right-of-way
+[SURVEILLANCE] Assigned Priority: CRITICAL
+[SURVEILLANCE] ========================================
+[LOGISTICS] Routing assets for incident EVT-VIDEO-001 at Marine Drive, Mumbai, India...
+[LOGISTICS] Grounding Queries: [
+  '',
+  'Marine Drive Mumbai traffic updates today January 31 2026',
+  'Marine Drive Mumbai structural collapse today January 31 2026',
+  'EVT-VIDEO-001 incident meaning',
+  'Marine Drive Mumbai structural collapse news recent'
+]
+ POST /api/coordinate/stream 200 in 59s (compile: 4ms, render: 59s)
