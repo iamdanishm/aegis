@@ -78,18 +78,34 @@ export interface AgentResponse {
 }
 
 export interface MissionReport {
-    mission_id: string;
-    duration: string;
-    lives_saved_estimate: number;
-    critical_events_summary: string[];
-    performance_score: number; // 0-100
-    officer_notes: string;
+    report_id: string;
+    classification: "OFFICIAL" | "SECRET" | "TOP SECRET";
+    incident_period: {
+        start: string;
+        end: string;
+    };
+    executive_summary: string;
+    operational_metrics: {
+        total_signals_processed: number;
+        validated_incidents: number;
+        critical_alerts: number;
+        protocol_zero_interventions: number;
+    };
+    resource_deployment: {
+        air_assets: number;
+        marine_assets: number;
+        ground_assets: number;
+        total_deployments: number;
+    };
+    geographic_impact: string[];
+    situational_assessment: string;
     generated_at: string;
     // Granular Agent Actions
     agent_audit_log?: AgentAuditLog[];
     // Detailed incident log
     incidents_log: {
         id: string;
+        timestamp: string;
         type: string;
         priority: string;
         status: string;
