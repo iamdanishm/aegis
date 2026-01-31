@@ -3,11 +3,11 @@
 import { ai, generateThoughtSignature } from "@/lib/gemini-client";
 import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
-import { Type } from "@google/genai";
+import { ThinkingLevel, Type } from "@google/genai";
 import fs from "fs";
 import path from "path";
 
-
+import { generateContentStreamWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
 /**
@@ -113,6 +113,10 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     7. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
        - If "MANUAL_TRACE_REQUIRED", require logistics but note "Pending Trace".
 
+    PRIORITY RULES:
+    - If external verification (Grounding) FAILS to find recent reports matching the claim, DOWNGRADE PRIORITY. Do NOT set to CRITICAL unless there is strong corroborating evidence.
+    - If "Unknown Location" or "Signal Lost", max priority is HIGH (requires investigation), never CRITICAL (requires immediate rescue).
+
     RESPONSE FORMAT (JSON):
     {
        "priority": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
@@ -185,7 +189,7 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
         console.log(`[TRIAGE] Sending request to Gemini (Stream)...`);
         console.log(`[TRIAGE] Payload (truncated):`, JSON.stringify(contents).substring(0, 500) + "...");
 
-        const resultStream = await ai.models.generateContentStream({
+        const resultStream = await generateContentStreamWithRetry(ai.models, {
             model: MODELS.TRIAGE,
             contents: contents,
             config: {
@@ -193,7 +197,7 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
                 tools: [{ googleSearch: {} }], // Enable Grounding for location fallback
                 thinkingConfig: {
                     includeThoughts: true,
-                    thinkingLevel: "HIGH" as any
+                    thinkingLevel: ThinkingLevel.HIGH
                 },
                 responseSchema: {
                     type: Type.OBJECT,
@@ -248,13 +252,10 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
 
         let result;
         try {
-            // Robust JSON extraction: Find the first { and the last }
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? jsonMatch[0] : rawText;
-            result = JSON.parse(jsonStr);
-        } catch (parseError) {
+            result = extractAndParseJSON(rawText);
+        } catch (parseError: any) {
             console.error("[TRIAGE] JSON Parse Failed. Raw text:", rawText);
-            throw new Error("JSON Parse Failed: " + (parseError as any).message);
+            throw new Error(`JSON Parse Failed: ${parseError.message}`);
         }
 
         // If we extracted genuine thoughts, use them for the "Glass Box" effect but don't overwrite the summary

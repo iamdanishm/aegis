@@ -4,6 +4,7 @@ import { ai } from "@/lib/gemini-client";
 import { MODELS } from "@/lib/constants";
 import { type Incident, type MissionReport } from "@/lib/types";
 import { Type } from "@google/genai";
+import { generateContentWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
 
 export async function generateMissionReport(incidents: Incident[], logs: string[]): Promise<MissionReport> {
     console.log("[REPORTER] Generating formal mission report...");
@@ -89,7 +90,7 @@ Generate a JSON report with:
 Return valid JSON only.`;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai.models, {
             model: MODELS.REASONING,
             contents: prompt,
             config: {
@@ -105,18 +106,15 @@ Return valid JSON only.`;
             }
         });
 
-        const text = response.text || "";
+        const text = response.text() || "";
         console.log("[REPORTER] Raw response length:", text.length);
 
         let data: any = {};
         if (text.length > 0) {
             try {
-                data = JSON.parse(text);
-            } catch {
-                try {
-                    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-                    data = JSON.parse(cleanText);
-                } catch (e) { console.error("Parse error", e); }
+                data = extractAndParseJSON(text);
+            } catch (e) {
+                console.error("[REPORTER] Parse error", e);
             }
         }
 

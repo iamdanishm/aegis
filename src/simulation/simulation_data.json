@@ -13,7 +13,7 @@
     },
     {
         "id": "EVT-VIDEO-001",
-        "trigger_time_offset": 15,
+        "trigger_time_offset": 2,
         "type": "VIDEO",
         "raw_input": "/Simulation Data/Videos/v1.mp4",
         "location": {

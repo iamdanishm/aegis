@@ -178,9 +178,10 @@ export function SignalFeed({ className }: { className?: string }) {
                     return (
                         <div
                             key={incident.id}
-                            onClick={() => toggleExpand(incident.id)}
+                            onClick={() => incident.status !== "PENDING" && toggleExpand(incident.id)}
                             className={cn(
-                                "rounded-xl border relative group transition-all duration-300 cursor-pointer overflow-hidden",
+                                "rounded-xl border relative group transition-all duration-300 overflow-hidden",
+                                incident.status === "PENDING" ? "cursor-default opacity-80" : "cursor-pointer",
                                 getPriorityColor(incident.priority),
                                 isExpanded
                                     ? "bg-opacity-20 ring-1 ring-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] my-2"
@@ -310,7 +311,7 @@ export function SignalFeed({ className }: { className?: string }) {
 
                                     {/* Actions Grid */}
                                     <div className="grid grid-cols-2 gap-3">
-                                        {(hasLocation || incident.manual_trace_required) && (
+                                        {(hasLocation || incident.manual_trace_required) && incident.status !== "PENDING" && (
                                             <button
                                                 onClick={(e) => handleNavigate(e, incident)}
                                                 className="flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 py-2.5 rounded-lg text-xs font-bold transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]"

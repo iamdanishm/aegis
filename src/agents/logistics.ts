@@ -3,10 +3,10 @@
 import { ai } from "@/lib/gemini-client";
 import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
-import { Type } from "@google/genai";
+import { ThinkingLevel, Type } from "@google/genai";
 
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
-import { generateContentStreamWithRetry } from "@/lib/gemini-utils";
+import { generateContentStreamWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
 
 // Helper for cinematic typing effect
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -151,7 +151,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
                 tools: [{ googleSearch: {} }], // Grounding enabled
                 thinkingConfig: {
                     includeThoughts: true,
-                    thinkingLevel: "HIGH" as any
+                    thinkingLevel: ThinkingLevel.HIGH
                 }
             },
         });
@@ -187,13 +187,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
         // ... (JSON parsing logic)
         let result;
         try {
-            // Robust JSON extraction using regex
-            const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                throw new Error("Failed to extract JSON from model response");
-            }
-            const cleanJson = jsonMatch[0];
-            result = JSON.parse(cleanJson);
+            result = extractAndParseJSON(fullText);
         } catch (e) {
             console.warn("[LOGISTICS] Failed to parse JSON, using fallback text parsing or defaults", fullText);
             result = {

@@ -13,8 +13,10 @@ export function MapController({ incidents }: { incidents: Incident[] }) {
     const lastAutoFlyId = useRef<string | null>(null);
 
     useEffect(() => {
-        // Find the latest incident that has a valid location
-        const latestWithLoc = [...incidents].reverse().find(i => i.location?.lat && i.location?.lng);
+        // Find the latest incident that has a valid location AND is not PENDING
+        const latestWithLoc = [...incidents]
+            .reverse()
+            .find(i => i.location?.lat && i.location?.lng && i.status !== "PENDING");
 
         if (latestWithLoc && latestWithLoc.location.lat && latestWithLoc.location.lng) {
             // Only fly if we haven't already flown to this specific incident ID automatically

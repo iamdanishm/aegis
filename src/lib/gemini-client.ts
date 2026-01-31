@@ -7,13 +7,31 @@ if (!apiKey) {
     console.warn("[GEMINI-CLIENT] Warning: GEMINI_API_KEY environment variable is missing. The system will run in SIMULATION MODE with mocked AI responses.");
 }
 
-export const ai = new GoogleGenAI({
-    apiKey: apiKey || "dummy-key-for-simulation",
-});
+const globalForAi = globalThis as unknown as { gemini: GoogleGenAI };
+
+let aiInstance: GoogleGenAI;
+
+if (globalForAi.gemini) {
+    console.log("[GEMINI-CLIENT] Reusing existing Gemini client instance ♻️");
+    aiInstance = globalForAi.gemini;
+} else {
+    console.log("[GEMINI-CLIENT] Initializing NEW Gemini client instance 🚀");
+    aiInstance = new GoogleGenAI({
+        apiKey: apiKey || "dummy-key-for-simulation",
+    });
+    // In development, save the instance to globalThis to prevent re-initialization on hot reload
+    if (process.env.NODE_ENV !== "production") {
+        globalForAi.gemini = aiInstance;
+    }
+}
+
+export const ai = aiInstance;
 
 import { MODELS } from "@/lib/constants";
 
-console.log("[GEMINI-CLIENT] Initialized with models:", MODELS);
+if (!globalForAi.gemini) {
+    console.log("[GEMINI-CLIENT] Initialized with models:", MODELS);
+}
 
 /**
  * Generates or validates a thought signature.

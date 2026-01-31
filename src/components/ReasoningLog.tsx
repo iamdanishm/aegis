@@ -86,7 +86,8 @@ export function ReasoningLog({ className }: { className?: string }) {
         .find(i => i.reasoning_trace && i.status === "TRIAGED");
 
     // Check if there's a pending incident being handled by the Coordinator
-    const pendingIncident = incidents.find(i => i.status === "PENDING");
+    // We include ANALYZING to ensure the state transition is captured immediately.
+    const pendingIncident = incidents.find(i => i.status === "PENDING" || i.status === "ANALYZING");
 
     // Auto-scroll thoughts
     useEffect(() => {
@@ -152,12 +153,6 @@ export function ReasoningLog({ className }: { className?: string }) {
                         &gt; Analyzing critical events...
                         <br />
                         &gt; Compiling chain of custody...
-                    </div>
-                </div>
-            ) : isSimulationComplete ? (
-                <div className="mt-auto border-t border-zinc-800 pt-3">
-                    <div className="text-zinc-600 text-center py-4 text-xs font-mono uppercase tracking-widest border border-zinc-800 rounded bg-zinc-900/50">
-                        Mission Complete. System Standby.
                     </div>
                 </div>
             ) : (latestTriaged || pendingIncident) ? (
@@ -271,7 +266,26 @@ export function ReasoningLog({ className }: { className?: string }) {
                         </div>
                     )}
                 </div>
-            ) : null}
-        </div>
+            ) : (
+                <div className="mt-auto border-t border-zinc-800 pt-3 opacity-50">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
+                            <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
+                            <span className="w-1.5 h-1.5 bg-zinc-600 rounded-full" />
+                        </div>
+                        <h4 className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+                            AI Reasoning Trace
+                        </h4>
+                    </div>
+                    <div className="bg-zinc-900/30 p-3 rounded-lg border border-zinc-800/50 min-h-[100px] flex items-center justify-center">
+                        <div className="text-zinc-600 text-[10px] font-mono italic">
+                            [SYSTEM STANDBY] Awaiting Signal...
+                        </div>
+                    </div>
+                </div>
+            )
+            }
+        </div >
     );
 }

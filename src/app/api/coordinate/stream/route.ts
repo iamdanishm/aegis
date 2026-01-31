@@ -43,6 +43,10 @@ export async function POST(req: NextRequest) {
                 const initEvent = { type: "thought", content: "Coordinator: Analyzing incident inputs..." };
                 controller.enqueue(encoder.encode(JSON.stringify(initEvent) + "\n"));
 
+                // Immediate visual feedback to mask cold start
+                const connectEvent = { type: "thought", content: " [SYSTEM] Connecting to Aegis Satellite Network..." };
+                controller.enqueue(encoder.encode(JSON.stringify(connectEvent) + "\n"));
+
                 // Use COORDINATOR model (Flash) for speed, not THINKING (Pro)
                 const result = await ai.models.generateContentStream({
                     model: MODELS.COORDINATOR,
@@ -87,9 +91,20 @@ export async function POST(req: NextRequest) {
                 // We attempt to parse the accumulated text to find the JSON.
                 try {
                     // Extract JSON from the mixed thought/content stream
-                    const jsonMatch = fullText.match(/\{[\s\S]*\}/);
+                    // Extract JSON from the mixed thought/content stream
+                    // Support markdown code blocks
+                    const jsonMatch = fullText.match(/```json\s*(\{[\s\S]*?\})\s*```/) || fullText.match(/(\{[\s\S]*\})/);
+
+                    if (!jsonMatch) {
+                        if (!fullText.trim()) {
+                            throw new Error("Gemini API stream ended with no content (Empty Response).");
+                        }
+                        // If we have text but no JSON, log it and try fallback if helpful, or let the error handler catch it below.
+                    }
+
                     if (jsonMatch) {
-                        const routingResult = JSON.parse(jsonMatch[0]);
+                        const jsonStr = jsonMatch[1] || jsonMatch[0];
+                        const routingResult = JSON.parse(jsonStr);
 
                         // --- HIT THE SUB-AGENTS ---
                         // The routing decision tells us WHO to call. Now we must actually CALL them.
@@ -183,9 +198,23 @@ export async function POST(req: NextRequest) {
                         const event = { type: "result", data: finalResult };
                         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                     } else {
-                        // Fallback
+                        // Fallback: If regex failed, check if the string is just JSON
+                        try {
+                            // Try to clean potential leading/trailing text manually if regex missed
+                            const firstBracket = fullText.indexOf('{');
+                            const lastBracket = fullText.lastIndexOf('}');
+                            if (firstBracket !== -1 && lastBracket !== -1) {
+                                const jsonStr = fullText.substring(firstBracket, lastBracket + 1);
+                                // Recursive call logic or just error out cleanly? 
+                                // We can't actually do the logic here without duplicating code, but we can report a better error.
+                                // For now, let's just log the error with high detail.
+                                console.error("[ROUTE] Regex blocked JSON extraction. Raw:", fullText);
+                                throw new Error("JSON structure ambiguous");
+                            }
+                        } catch (e) { }
+
                         console.error("[ROUTE] JSON Parse Failed. Full Text:", fullText);
-                        const event = { type: "error", message: `Failed to parse JSON. Got: ${fullText.substring(0, 100)}...` };
+                        const event = { type: "error", message: `Analysis Failed. Raw Output: ${fullText.substring(0, 50)}...` };
                         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                     }
                 } catch (e: any) {

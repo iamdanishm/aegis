@@ -70,3 +70,69 @@ export async function generateContentStreamWithRetry(
     }
     throw lastError;
 }
+/**
+ * Robustly extracts and parses JSON from a string that may contain 
+ * multiple JSON objects or surrounding text/markdown.
+ */
+export function extractAndParseJSON(text: string) {
+    if (!text || !text.trim()) {
+        throw new Error("Empty text provided for JSON parsing");
+    }
+
+    // 1. Try simple parse first
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        // Continue to more robust methods
+    }
+
+    // 2. Remove markdown code blocks and whitespace
+    let cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+    try {
+        return JSON.parse(cleaned);
+    } catch (e) {
+        // Continue
+    }
+
+    // 3. Find all potential JSON objects using brace matching (handles nested objects)
+    const jsonObjects: string[] = [];
+    let braceCount = 0;
+    let startPos = -1;
+
+    for (let i = 0; i < cleaned.length; i++) {
+        if (cleaned[i] === '{') {
+            if (braceCount === 0) startPos = i;
+            braceCount++;
+        } else if (cleaned[i] === '}') {
+            braceCount--;
+            if (braceCount === 0 && startPos !== -1) {
+                jsonObjects.push(cleaned.substring(startPos, i + 1));
+                startPos = -1;
+            }
+        }
+    }
+
+    // 4. Try parsing each object, starting from the last one (often the most complete/final)
+    for (let i = jsonObjects.length - 1; i >= 0; i--) {
+        const candidate = jsonObjects[i];
+        try {
+            return JSON.parse(candidate);
+        } catch (e) {
+            // 5. Final attempt: sanitize control characters that break JSON.parse (like literal newlines)
+            try {
+                const sanitized = candidate.replace(/[\x00-\x1F]/g, (match) => {
+                    if (match === '\n') return '\\n';
+                    if (match === '\r') return '\\r';
+                    if (match === '\t') return '\\t';
+                    return '';
+                });
+                return JSON.parse(sanitized);
+            } catch (innerE) {
+                // Try next block
+            }
+        }
+    }
+
+    console.error("[GEMINI-UTILS] Failed to extract valid JSON from:", text);
+    throw new Error("No valid JSON object found in response");
+}

@@ -244,7 +244,12 @@ export function TacticalMap({ className }: { className?: string }) {
                 <MapFocusHandler />
 
                 {incidents
-                    .filter(incident => incident.location && incident.location.lat !== null && incident.location.lng !== null)
+                    .filter(incident =>
+                        incident.location &&
+                        incident.location.lat !== null &&
+                        incident.location.lng !== null &&
+                        incident.status !== "PENDING" // HIDE PENDING nodes until analyzing/triaged
+                    )
                     .map((incident) => (
                         <div key={incident.id}>
                             <TacticalMarker incident={incident} />

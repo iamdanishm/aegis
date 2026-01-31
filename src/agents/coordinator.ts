@@ -6,7 +6,7 @@ import { type Incident } from "@/lib/types";
 import { triageIncident } from "./triage";
 import { analyzeSurveillance } from "./surveillance";
 import { Type } from "@google/genai";
-import { generateContentWithRetry } from "@/lib/gemini-utils";
+import { generateContentWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
 
 interface RoutingDecision {
     target_agent: "TRIAGE" | "SURVEILLANCE" | "LOGISTICS";
@@ -77,7 +77,7 @@ Determine the target agent for this incident.`;
             },
         });
 
-        const result = JSON.parse(response.text() || "{}");
+        const result = extractAndParseJSON(response.text() || "{}");
         console.log(`[COORDINATOR] AI Routing Decision: ${result.target_agent} (confidence: ${result.confidence})`);
         console.log(`[COORDINATOR] AI Reasoning: ${result.reasoning}`);
 
@@ -184,7 +184,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                     }
                 });
 
-                const result = JSON.parse(response.text() || "{}");
+                const result = extractAndParseJSON(response.text() || "{}");
                 processedIncident = {
                     ...processedIncident,
                     ...result,

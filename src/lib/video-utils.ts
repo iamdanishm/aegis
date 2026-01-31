@@ -10,11 +10,16 @@ if (ffmpegPath) {
         ffmpeg.setFfmpegPath(ffmpegPath);
     } else {
         // Fallback for some windows structures or monorepos
-        const altPath = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
-        if (fs.existsSync(altPath)) {
-            ffmpeg.setFfmpegPath(altPath);
+        // Try both .exe and no extension
+        const altPathExe = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
+        const altPathBin = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg');
+
+        if (fs.existsSync(altPathExe)) {
+            ffmpeg.setFfmpegPath(altPathExe);
+        } else if (fs.existsSync(altPathBin)) {
+            ffmpeg.setFfmpegPath(altPathBin);
         } else {
-            console.warn(`[VIDEO-UTILS] Warning: ffmpeg-static binary not found at ${ffmpegPath} or ${altPath}!`);
+            console.warn(`[VIDEO-UTILS] Warning: ffmpeg-static binary not found at ${ffmpegPath}, ${altPathExe}, or ${altPathBin}!`);
         }
     }
 } else {
