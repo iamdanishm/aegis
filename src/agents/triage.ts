@@ -106,6 +106,8 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
          - Fallback to metadata.
        - If NO metadata:
          - "MANUAL_TRACE_REQUIRED".
+       
+       CRITICAL: If you extract an address (e.g. "Main Street Bridge"), you MUST use the \`googleSearch\` tool to find its precise GPS coordinates (lat/lng). return these in \`location\`.
     
     6. REASONING TRACE: Concise summary starting with location methodology status.
     7. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
@@ -188,6 +190,7 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
             contents: contents,
             config: {
                 systemInstruction: systemInstruction,
+                tools: [{ googleSearch: {} }], // Enable Grounding for location fallback
                 thinkingConfig: {
                     includeThoughts: true,
                     thinkingLevel: "HIGH" as any

@@ -6,6 +6,7 @@ import { type Incident } from "@/lib/types";
 import { Type } from "@google/genai";
 
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+import { generateContentStreamWithRetry } from "@/lib/gemini-utils";
 
 // Helper for cinematic typing effect
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -140,7 +141,9 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     `;
 
     try {
-        const resultStream = await ai.models.generateContentStream({
+        // ... existing code ...
+
+        const resultStream = await generateContentStreamWithRetry(ai.models, {
             model: MODELS.LOGISTICS,
             contents: [{ text: userPrompt }],
             config: {

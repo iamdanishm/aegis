@@ -48,6 +48,7 @@ export function SignalFeed({ className }: { className?: string }) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [mediaUrl, setMediaUrl] = useState<string | null>(null);
     const [mediaType, setMediaType] = useState<"video" | "audio" | "image" | null>(null);
+    const [analysisExpandedMap, setAnalysisExpandedMap] = useState<Record<string, boolean>>({});
 
     // Live injection state
     const [liveInput, setLiveInput] = useState("");
@@ -55,6 +56,11 @@ export function SignalFeed({ className }: { className?: string }) {
 
     const toggleExpand = (id: string) => {
         setExpandedId(expandedId === id ? null : id);
+    };
+
+    const toggleAnalysis = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setAnalysisExpandedMap(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
     const handleNavigate = (e: React.MouseEvent, incident: Incident) => {
@@ -136,78 +142,37 @@ export function SignalFeed({ className }: { className?: string }) {
     return (
         <div className={cn("flex flex-col h-full bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden", className)}>
             {/* Header */}
-            <div className="p-4 border-b border-zinc-800 bg-gradient-to-r from-zinc-900/50 to-zinc-950">
-                <h3 className="text-zinc-100 font-bold uppercase tracking-wider text-sm flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-red-500 animate-pulse" />
-                        Inbound Signals
-                    </div>
+            <div className="p-5 border-b border-white/10 bg-gradient-to-r from-zinc-900 via-zinc-900 to-black">
+                <h3 className="text-zinc-100 font-bold uppercase tracking-widest text-sm flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-mono text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">
+                        <div className="relative">
+                            <Activity className="w-5 h-5 text-red-500 relative z-10" />
+                            <div className="absolute inset-0 bg-red-500/20 blur-lg animate-pulse" />
+                        </div>
+                        <span className="text-shadow-sm">Inbound Signals</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className="text-[11px] font-mono text-zinc-400 bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
                             {incidents.length} ACTIVE
-                        </span>
-                        <span className="text-xs font-mono text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                            T+{time}s
                         </span>
                     </div>
                 </h3>
             </div>
 
-            {/* Live Injection Form */}
-            <div className="p-3 border-b border-zinc-800 bg-zinc-900/50">
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        value={liveInput}
-                        onChange={(e) => setLiveInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleInjectSignal()}
-                        placeholder="Inject live distress signal (e.g., 'Fire trapped 3 people on 4th floor')"
-                        disabled={isInjecting}
-                        className="flex-1 bg-black/50 border border-zinc-700 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 disabled:opacity-50"
-                    />
-                    <button
-                        onClick={handleInjectSignal}
-                        disabled={!liveInput.trim() || isInjecting}
-                        className={cn(
-                            "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2",
-                            "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            isInjecting && "animate-pulse"
-                        )}
-                    >
-                        {isInjecting ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                <span>Processing...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Send className="w-4 h-4" />
-                                <span>Inject</span>
-                            </>
-                        )}
-                    </button>
-                </div>
-                <p className="text-[10px] text-zinc-600 mt-1.5 font-mono">
-                    📡 Type a distress message and press Enter or click Inject for real-time AI analysis
-                </p>
-            </div>
-
             {/* Feed */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 pb-20 scrollbar-thin scrollbar-thumb-zinc-800 min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20 scrollbar-thin scrollbar-thumb-zinc-800 min-h-0">
                 {incidents.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-10">
-                        <div className="w-16 h-16 rounded-full border border-zinc-800 flex items-center justify-center mb-4">
-                            <Radio className="w-8 h-8 text-zinc-700 animate-pulse" />
+                    <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-50">
+                        <div className="w-20 h-20 rounded-full border border-zinc-800 bg-zinc-900/50 flex items-center justify-center mb-6">
+                            <Radio className="w-8 h-8 text-zinc-600 animate-pulse" />
                         </div>
-                        <span className="text-zinc-600 text-xs font-mono">MONITORING FREQUENCIES...</span>
-                        <span className="text-zinc-700 text-[10px] mt-1">Awaiting distress signals</span>
+                        <span className="text-zinc-500 text-sm font-mono tracking-widest">MONITORING FREQUENCIES...</span>
+                        <span className="text-zinc-600 text-xs mt-2">Awaiting distress signals</span>
                     </div>
                 )}
                 {[...incidents].reverse().map((incident, index) => {
                     const isExpanded = expandedId === incident.id;
                     const cleanRawInput = incident.raw_input.split('/').pop() || incident.raw_input;
-                    // Fix: strictly cast to boolean to avoid rendering "0" if lat is 0
                     const hasLocation = !!(incident.location && typeof incident.location.lat === 'number');
 
                     return (
@@ -215,134 +180,142 @@ export function SignalFeed({ className }: { className?: string }) {
                             key={incident.id}
                             onClick={() => toggleExpand(incident.id)}
                             className={cn(
-                                "rounded-lg border text-xs relative group transition-all duration-300 cursor-pointer overflow-hidden",
+                                "rounded-xl border relative group transition-all duration-300 cursor-pointer overflow-hidden",
                                 getPriorityColor(incident.priority),
-                                isExpanded ? "bg-opacity-20 ring-1 ring-white/10" : "hover:scale-[1.01]",
-                                index === 0 && incident.status === "PENDING" && "ring-1 ring-cyan-500/50 animate-pulse"
+                                isExpanded
+                                    ? "bg-opacity-20 ring-1 ring-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] my-2"
+                                    : "hover:scale-[1.01] hover:bg-white/[0.02]",
+                                index === 0 && incident.status === "PENDING" && "ring-1 ring-cyan-500/50 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.15)]"
                             )}
                             style={{ animationDelay: `${index * 100}ms` }}
                         >
-                            <div className="p-3">
-                                {/* Status indicator */}
-                                <div className="absolute top-3 right-3">
-                                    {incident.status === "PENDING" ? (
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
-                                            <span className="text-[9px] text-cyan-400 font-mono">ANALYZING</span>
+                            <div className={cn("p-4 transition-all duration-300", isExpanded ? "pb-2" : "")}>
+                                {/* Header - Flex Row for Better Spacing */}
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "w-9 h-9 rounded-lg flex items-center justify-center border transition-colors",
+                                            isExpanded ? "bg-white/10 border-white/20" : "bg-black/20 border-white/5"
+                                        )}>
+                                            {getTypeIcon(incident.type)}
                                         </div>
-                                    ) : (
-                                        <span className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
-                                            ✓ TRIAGED
-                                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3 opacity-50" />}
-                                        </span>
-                                    )}
-                                </div>
-
-                                {/* Header */}
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="p-1.5 rounded bg-black/20">
-                                        {getTypeIcon(incident.type)}
+                                        <div>
+                                            <span className="font-bold text-sm text-zinc-200 block tracking-wide">{incident.id}</span>
+                                            <span className="text-zinc-500 text-[11px] font-mono mt-0.5 block flex items-center gap-1.5">
+                                                <Clock className="w-3 h-3" />
+                                                {new Date(incident.timestamp).toLocaleTimeString()}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <span className="font-bold text-sm block">{incident.id}</span>
-                                        <span className="text-zinc-500 text-[10px] font-mono">
-                                            {new Date(incident.timestamp).toLocaleTimeString()}
-                                        </span>
+
+                                    {/* Status Badge */}
+                                    <div className="flex items-center">
+                                        <div className="flex items-center">
+                                            {incident.status === "PENDING" ? (
+                                                <div className="flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 px-2 py-1 rounded-full">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                                                    <span className="text-[10px] text-zinc-400 font-mono font-bold tracking-wider">QUEUED</span>
+                                                </div>
+                                            ) : incident.status === "ANALYZING" ? (
+                                                <div className="flex items-center gap-2 bg-cyan-500/5 border border-cyan-500/20 px-2 py-1 rounded-full">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
+                                                    <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-wider">ANALYZING</span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5 pl-2">
+                                                    <span className="text-[10px] text-emerald-400 font-mono font-bold tracking-wider flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                        TRIAGED
+                                                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5 opacity-50" />}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Content Preview */}
                                 {!isExpanded && (
-                                    <div className="opacity-80 font-mono text-[11px] leading-relaxed mb-2 pr-16 text-zinc-400">
-                                        <span className="font-bold text-zinc-300">DATA:</span> {cleanRawInput.length > 30 ? cleanRawInput.substring(0, 30) + "..." : cleanRawInput}
+                                    <div className="pl-[3.25rem] mb-3">
+                                        <div className={cn(
+                                            "font-mono text-xs leading-relaxed text-zinc-400/90 line-clamp-2",
+                                            incident.priority === "CRITICAL" && "text-red-200/80"
+                                        )}>
+                                            <span className="font-bold text-zinc-500 mr-2 uppercase text-[10px] tracking-wider">Payload:</span>
+                                            {cleanRawInput}
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* Footer Tags */}
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                    {/* FORENSICS BADGES */}
-                                    {incident.manual_trace_required && (
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-red-600/20 text-red-500 border border-red-500/50 animate-pulse flex items-center gap-1 shadow-[0_0_10px_rgba(220,38,38,0.4)]">
-                                            <AlertCircle className="w-3 h-3" />
-                                            SIGNAL LOST
-                                        </span>
-                                    )}
-                                    {incident.location_source === "VISUAL_LANDMARK" && (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30 flex items-center gap-1">
-                                            <MapPin className="w-3 h-3" />
-                                            VISUAL FORENSICS match
-                                        </span>
-                                    )}
-                                    {incident.location_source === "SIGNAL_TRIANGULATION" && (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
-                                            <Activity className="w-3 h-3" />
-                                            SIGNAL TRIANGULATION
-                                        </span>
-                                    )}
-                                    {/* CONFLICT BADGE */}
-                                    {incident.location_ambiguity && (
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-orange-500/20 text-orange-400 border border-orange-500/50 flex items-center gap-1 animate-pulse">
-                                            <AlertTriangle className="w-3 h-3" />
-                                            LOCATION CONFLICT
-                                        </span>
-                                    )}
-
-                                    {/* PROTOCOL ZERO BADGE - Visible when collapsed */}
-                                    {incident.requires_human_auth && incident.auth_status === "PENDING" && (
-                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded bg-amber-500 text-black animate-pulse flex items-center gap-1 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
-                                            NEEDS APPROVAL
-                                        </span>
-                                    )}
-                                    { /* TRANSLATION BADGE (CINEMATIC) */}
-                                    {incident.detected_language && incident.detected_language !== 'English' && (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
-                                            🌐 Translated from {incident.detected_language}
-                                        </span>
-                                    )}
+                                {/* Footer Tags - Improved Spacing & Layout */}
+                                <div className={cn("flex items-center gap-2 flex-wrap", !isExpanded && "pl-[3.25rem]")}>
+                                    {/* Priority Badge - Always Visible */}
                                     {incident.priority && (
                                         <span className={cn(
-                                            "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/20",
-                                            incident.priority === "CRITICAL" ? "text-red-400" :
-                                                incident.priority === "HIGH" ? "text-orange-400" : "text-zinc-400"
+                                            "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border",
+                                            incident.priority === "CRITICAL" ? "bg-red-500/20 text-red-200 border-red-500/30 shadow-[0_0_10px_rgba(220,38,38,0.2)]" :
+                                                incident.priority === "HIGH" ? "bg-orange-500/20 text-orange-200 border-orange-500/30" :
+                                                    incident.priority === "MEDIUM" ? "bg-yellow-500/10 text-yellow-200 border-yellow-500/20" :
+                                                        "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
                                         )}>
                                             {incident.priority}
                                         </span>
                                     )}
-                                    {(incident.category || incident.people_safety === "SAFE") && (
-                                        <span className={cn(
-                                            "text-[9px] px-1.5 py-0.5 rounded border leading-none",
-                                            incident.people_safety === "SAFE"
-                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                                : "opacity-60 bg-black/10 border-transparent text-zinc-400"
-                                        )}>
-                                            {incident.people_safety === "SAFE" ? "SAFE" : incident.category}
+
+                                    {/* Detailed Tags - Only show critical ones collapsed, all expanded */}
+                                    {incident.manual_trace_required && (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-red-600/10 text-red-400 border border-red-500/30 animate-pulse flex items-center gap-1.5">
+                                            <AlertCircle className="w-3 h-3" />
+                                            Unknown Loc
                                         </span>
                                     )}
+
+                                    {incident.location_ambiguity && (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-orange-500/10 text-orange-400 border border-orange-500/30 flex items-center gap-1.5 animate-pulse">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            Conflict
+                                        </span>
+                                    )}
+
+                                    {/* Action Required Badge */}
+                                    {incident.requires_human_auth && incident.auth_status === "PENDING" && (
+                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-amber-500 text-black animate-pulse flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
+                                            AUTH REQ
+                                        </span>
+                                    )}
+
+                                    {/* Compact Asset Count */}
                                     {incident.assigned_assets && incident.assigned_assets.length > 0 && (
                                         <div className="flex gap-1 ml-auto">
-                                            {incident.assigned_assets.map((asset, i) => (
-                                                <span key={i} className="text-[8px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1 py-0.5 rounded font-bold uppercase whitespace-nowrap">
-                                                    {asset}
-                                                </span>
-                                            ))}
+                                            <div className="flex -space-x-1">
+                                                {incident.assigned_assets.slice(0, 3).map((asset, i) => (
+                                                    <div key={i} className="w-5 h-5 rounded-full bg-zinc-900 border border-zinc-700 flex items-center justify-center relative z-10" title={asset}>
+                                                        <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full opacity-70" />
+                                                    </div>
+                                                ))}
+                                                {incident.assigned_assets.length > 3 && (
+                                                    <div className="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[8px] text-zinc-400 relative z-0">
+                                                        +{incident.assigned_assets.length - 3}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* EXPANDED CONTENT */}
+                            {/* EXPANDED CONTENT DRAWER */}
                             {isExpanded && (
-                                <div className="border-t border-black/10 bg-black/10 p-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                                <div className="border-t border-white/5 bg-black/20 p-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
 
-                                    {/* Actions Row */}
-                                    <div className="flex gap-2">
+                                    {/* Actions Grid */}
+                                    <div className="grid grid-cols-2 gap-3">
                                         {(hasLocation || incident.manual_trace_required) && (
                                             <button
                                                 onClick={(e) => handleNavigate(e, incident)}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-1.5 rounded text-[10px] font-bold transition-colors"
+                                                className="flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 py-2.5 rounded-lg text-xs font-bold transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                                             >
-                                                <MapPin className="w-3 h-3" />
+                                                <MapPin className="w-3.5 h-3.5" />
                                                 LOCATE ON MAP
                                             </button>
                                         )}
@@ -350,60 +323,95 @@ export function SignalFeed({ className }: { className?: string }) {
                                         {(incident.type === "AUDIO" || incident.type === "VIDEO") && (
                                             <button
                                                 onClick={(e) => handleOpenMedia(e, incident)}
-                                                className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-1.5 rounded text-[10px] font-bold transition-colors"
+                                                className="flex items-center justify-center gap-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 hover:border-cyan-500/50 py-2.5 rounded-lg text-xs font-bold transition-all hover:shadow-[0_0_15px_rgba(6,182,212,0.1)]"
                                             >
-                                                <Play className="w-3 h-3" />
+                                                <Play className="w-3.5 h-3.5" />
                                                 PLAY MEDIA
                                             </button>
                                         )}
                                     </div>
 
-                                    {/* TARGET LOCATION DISPLAY */}
+                                    {/* Incident-Specific Voice Override (Moved Up) */}
+                                    <div className="pt-1">
+                                        <CommanderControls incidentContext={incident} className="w-full justify-center" />
+                                    </div>
+
+                                    {/* Location Info Card */}
                                     {hasLocation && (
                                         <div className={cn(
-                                            "p-2 rounded border text-[10px] font-mono flex items-start gap-2",
-                                            incident.location_ambiguity ? "bg-orange-500/10 border-orange-500/30 text-orange-400" : "bg-zinc-900/50 border-zinc-800 text-zinc-300"
+                                            "p-3 rounded-lg border text-xs font-mono flex items-start gap-3 relative overflow-hidden",
+                                            incident.location_ambiguity ? "bg-orange-500/5 border-orange-500/20 text-orange-300" : "bg-zinc-900/40 border-white/5 text-zinc-300"
                                         )}>
-                                            <MapPin className={cn("w-3.5 h-3.5 shrink-0 mt-0.5", incident.location_ambiguity && "animate-pulse")} />
+                                            <div className={cn(
+                                                "w-8 h-8 rounded-md flex items-center justify-center shrink-0 border",
+                                                incident.location_ambiguity ? "bg-orange-500/10 border-orange-500/30 text-orange-400" : "bg-white/5 border-white/10 text-zinc-400"
+                                            )}>
+                                                <MapPin className={cn("w-4 h-4", incident.location_ambiguity && "animate-pulse")} />
+                                            </div>
                                             <div>
-                                                <span className="block font-bold opacity-70 mb-0.5">
-                                                    {incident.location_ambiguity ? "CONFIRMED TARGET (GPS OVERRIDE):" : "INCIDENT LOCATION:"}
+                                                <span className="block font-bold text-[10px] uppercase tracking-wider opacity-60 mb-0.5">
+                                                    {incident.location_ambiguity ? "CONFIRMED TARGET (GPS OVERRIDE)" : "INCIDENT LOCATION"}
                                                 </span>
-                                                <span className="text-white/90">
+                                                <span className="text-white/90 font-sans tracking-wide">
                                                     {incident.location?.address}
                                                 </span>
-                                                <div className="text-[9px] opacity-50 mt-0.5">
-                                                    {incident.location?.lat.toFixed(6)}, {incident.location?.lng.toFixed(6)}
+                                                <div className="text-[10px] opacity-50 mt-0.5 font-mono">
+                                                    {(incident.location?.lat === 0 && incident.location?.lng === 0)
+                                                        ? "GPS: SIGNAL LOST / UNRESOLVED"
+                                                        : `GPS: ${incident.location?.lat.toFixed(6)}, ${incident.location?.lng.toFixed(6)}`
+                                                    }
                                                 </div>
                                             </div>
+                                            {/* Decorative grid pattern */}
+                                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-transparent to-white/5 pointer-events-none" />
                                         </div>
                                     )}
 
-                                    {/* Full Details */}
-                                    <div className="space-y-2">
-                                        <div className="bg-black/20 p-2 rounded text-[10px] font-mono whitespace-pre-wrap max-h-[100px] overflow-y-auto">
-                                            <span className="text-zinc-500 block mb-1">RAW CONTENT:</span>
-                                            {incident.raw_input}
+                                    {/* Data/Analysis Sections */}
+                                    <div className="space-y-3">
+                                        <div className="bg-black/30 p-3 rounded-lg text-[11px] font-mono border border-white/5">
+                                            <span className="text-zinc-500 block mb-1.5 text-[10px] uppercase tracking-widest font-bold">RAW PAYLOAD</span>
+                                            <div className="text-zinc-300 whitespace-pre-wrap max-h-[100px] overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700">
+                                                {incident.raw_input}
+                                            </div>
                                         </div>
 
                                         {incident.reasoning_trace && (
-                                            <div className="bg-black/20 p-2 rounded text-[10px] font-mono">
-                                                <span className="text-zinc-500 block mb-1">ANALYSIS:</span>
-                                                <div className="opacity-80 leading-relaxed">
+                                            <div className="bg-gradient-to-br from-cyan-900/10 to-black/30 p-3 rounded-lg text-[11px] font-mono border border-cyan-500/10 shadow-inner">
+                                                <span className="text-cyan-500/70 block mb-1.5 text-[10px] uppercase tracking-widest font-bold flex items-center gap-2">
+                                                    <Activity className="w-3 h-3" />
+                                                    AI Analysis Trace
+                                                </span>
+                                                <div className={cn(
+                                                    "opacity-90 leading-relaxed text-cyan-100/80 transition-all duration-300",
+                                                    !analysisExpandedMap[incident.id] ? "line-clamp-4" : ""
+                                                )}>
                                                     {incident.reasoning_trace}
                                                 </div>
+                                                {incident.reasoning_trace.length > 150 && (
+                                                    <button
+                                                        onClick={(e) => toggleAnalysis(incident.id, e)}
+                                                        className="mt-2 text-[10px] font-bold text-cyan-500/60 hover:text-cyan-400 flex items-center gap-1 transition-colors"
+                                                    >
+                                                        {analysisExpandedMap[incident.id] ? (
+                                                            <>Show Less <ChevronUp className="w-3 h-3" /></>
+                                                        ) : (
+                                                            <>Read More <ChevronDown className="w-3 h-3" /></>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
 
                                         {incident.assigned_assets && incident.assigned_assets.length > 0 && (
-                                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-2 rounded text-[10px] font-mono">
-                                                <span className="text-emerald-500 font-bold block mb-1 flex items-center gap-1 uppercase tracking-tighter">
-                                                    <Activity className="w-3 h-3" />
-                                                    Logistics: Assets Deployed
+                                            <div className="bg-emerald-900/10 border border-emerald-500/10 p-3 rounded-lg text-[11px] font-mono">
+                                                <span className="text-emerald-500/70 font-bold block mb-2 text-[10px] uppercase tracking-widest flex items-center gap-2">
+                                                    <Shield className="w-3 h-3" />
+                                                    Deployed Assets
                                                 </span>
-                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                <div className="flex flex-wrap gap-2">
                                                     {incident.assigned_assets.map((asset, i) => (
-                                                        <span key={i} className="bg-emerald-500 text-black px-1.5 py-0.5 rounded font-bold uppercase text-[8px]">
+                                                        <span key={i} className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 px-2 py-1 rounded font-bold uppercase text-[9px] shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                                                             {asset}
                                                         </span>
                                                     ))}
@@ -413,113 +421,111 @@ export function SignalFeed({ className }: { className?: string }) {
 
                                         {/* PROTOCOL ZERO: Human Authorization Gate */}
                                         {incident.requires_human_auth && incident.auth_status === "PENDING" && (
-                                            <div className="border-2 border-amber-500 bg-amber-500/10 rounded-lg p-4 animate-pulse-slow shadow-[0_0_30px_rgba(245,158,11,0.2)] mt-2">
-                                                <div className="flex items-center gap-3 mb-3 text-amber-500">
-                                                    <div className="relative flex shrink-0 w-3 h-3">
-                                                        <div className="w-full h-full rounded-full bg-amber-500 animate-ping absolute opacity-75" />
-                                                        <div className="w-full h-full rounded-full bg-amber-500 relative" />
+                                            <div className="border border-amber-500/50 bg-amber-500/5 rounded-xl p-4 animate-pulse-slow mt-4 relative overflow-hidden">
+                                                <div className="absolute inset-0 bg-amber-500/5 rotate-45 scale-150 animate-[pulse-fast_3s_infinite]" />
+
+                                                <div className="relative z-10">
+                                                    <div className="flex items-center gap-3 mb-3 text-amber-500">
+                                                        <div className="relative flex shrink-0 w-4 h-4">
+                                                            <div className="w-full h-full rounded-full bg-amber-500 animate-ping absolute opacity-75" />
+                                                            <div className="w-full h-full rounded-full bg-amber-500 relative shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                                                        </div>
+                                                        <span className="text-xs font-black uppercase tracking-widest font-mono">Protocol Zero: Authorization Required</span>
                                                     </div>
-                                                    <span className="text-xs font-black uppercase tracking-widest font-mono">Protocol Zero: Authorization Required</span>
-                                                </div>
 
-                                                <p className="text-[11px] text-amber-100 mb-4 font-mono leading-relaxed border-l-2 border-amber-500/50 pl-2">
-                                                    High-stakes decision flag. System holding for human consensus.
-                                                    Auto-approval sequence initiated...
-                                                </p>
+                                                    <p className="text-xs text-amber-100/90 mb-4 font-mono leading-relaxed pl-7">
+                                                        High-stakes decision flag. System holding for human consensus.
+                                                        Auto-approval sequence initiated...
+                                                    </p>
 
-                                                {/* Countdown Bar with Timer */}
-                                                {incident.auth_timeout_at && (
-                                                    <>
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="text-[10px] font-mono text-amber-400">AUTO-APPROVE IN:</span>
-                                                            <span className="text-lg font-mono font-bold text-amber-500 tabular-nums">
-                                                                {Math.max(0, incident.auth_timeout_at - time)}s
-                                                            </span>
+                                                    {/* Countdown Bar with Timer */}
+                                                    {incident.auth_timeout_at && (
+                                                        <div className="pl-7 mb-4">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-[10px] font-mono text-amber-400">AUTO-APPROVE IN:</span>
+                                                                <span className="text-lg font-mono font-bold text-amber-500 tabular-nums">
+                                                                    {Math.max(0, incident.auth_timeout_at - time)}s
+                                                                </span>
+                                                            </div>
+                                                            <div className="w-full h-2 bg-black/50 rounded-full overflow-hidden border border-amber-500/30">
+                                                                <div
+                                                                    className="h-full bg-gradient-to-r from-amber-600 to-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                                                                    style={{
+                                                                        width: `${Math.max(0, Math.min(100, ((incident.auth_timeout_at - time) / 30) * 100))}%`,
+                                                                        transition: 'none'
+                                                                    }}
+                                                                />
+                                                            </div>
                                                         </div>
-                                                        <div className="w-full h-3 bg-black/50 rounded-full overflow-hidden mb-4 border border-amber-500/30">
-                                                            <div
-                                                                className="h-full bg-gradient-to-r from-amber-600 to-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                                                                style={{
-                                                                    width: `${Math.max(0, Math.min(100, ((incident.auth_timeout_at - time) / 30) * 100))}%`,
-                                                                    transition: 'none'
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </>
-                                                )}
+                                                    )}
 
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            // Optimistic Update handled by store/hook, but here calls server action usually
-                                                            // For now we assume local update via store hook triggers log
-                                                            useSimulationStore.getState().updateIncident(incident.id, {
-                                                                auth_status: "DENIED",
-                                                                status: "RESOLVED",
-                                                                reasoning_trace: (incident.reasoning_trace || "") + " [DENIED BY HUMAN OPERATOR]"
-                                                            });
-                                                            useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] 🛑 Action DENIED by Commander for ${incident.id}`);
-                                                        }}
-                                                        className="bg-red-950 hover:bg-red-900 border border-red-500/30 text-red-500 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors"
-                                                    >
-                                                        Deny
-                                                    </button>
-                                                    <button
-                                                        onClick={async (e) => {
-                                                            e.stopPropagation();
-                                                            useSimulationStore.getState().updateIncident(incident.id, {
-                                                                auth_status: "APPROVED",
-                                                                reasoning_trace: (incident.reasoning_trace || "") + " [AUTHORIZED BY HUMAN OPERATOR]"
-                                                            });
-                                                            useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] ✅ Action APPROVED by Commander for ${incident.id}`);
+                                                    <div className="grid grid-cols-2 gap-3 pl-7">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                useSimulationStore.getState().updateIncident(incident.id, {
+                                                                    auth_status: "DENIED",
+                                                                    status: "RESOLVED",
+                                                                    reasoning_trace: (incident.reasoning_trace || "") + " [DENIED BY HUMAN OPERATOR]"
+                                                                });
+                                                                useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] 🛑 Action DENIED by Commander for ${incident.id}`);
+                                                            }}
+                                                            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-500 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all hover:shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                                                        >
+                                                            Deny Action
+                                                        </button>
+                                                        <button
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                useSimulationStore.getState().updateIncident(incident.id, {
+                                                                    auth_status: "APPROVED",
+                                                                    reasoning_trace: (incident.reasoning_trace || "") + " [AUTHORIZED BY HUMAN OPERATOR]"
+                                                                });
+                                                                useSimulationStore.getState().addLog(`[${time}s] [PROTOCOL ZERO] ✅ Action APPROVED by Commander for ${incident.id}`);
 
-                                                            // Resume Agent Flow
-                                                            const isMockMode = useSimulationStore.getState().isMockMode;
-                                                            if (isMockMode) {
-                                                                const { MOCK_RESPONSES } = await import("@/simulation/mock_responses");
-                                                                const mock = MOCK_RESPONSES[incident.id];
-                                                                setTimeout(() => {
-                                                                    useSimulationStore.getState().updateIncident(incident.id, {
-                                                                        ...mock,
-                                                                        auth_status: "APPROVED",
-                                                                        status: "TRIAGED"
-                                                                    });
-                                                                }, 1000);
-                                                            } else {
-                                                                const { coordinateIncident } = await import("@/agents/coordinator");
-                                                                coordinateIncident({ ...incident, auth_status: "APPROVED" })
-                                                                    .then(processed => useSimulationStore.getState().updateIncident(incident.id, processed));
-                                                            }
-                                                        }}
-                                                        className="bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-500 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                                                    >
-                                                        Approve
-                                                    </button>
+                                                                const isMockMode = useSimulationStore.getState().isMockMode;
+                                                                if (isMockMode) {
+                                                                    const { MOCK_RESPONSES } = await import("@/simulation/mock_responses");
+                                                                    const mock = MOCK_RESPONSES[incident.id];
+                                                                    setTimeout(() => {
+                                                                        useSimulationStore.getState().updateIncident(incident.id, {
+                                                                            ...mock,
+                                                                            auth_status: "APPROVED",
+                                                                            status: "TRIAGED"
+                                                                        });
+                                                                    }, 1000);
+                                                                } else {
+                                                                    const { coordinateIncident } = await import("@/agents/coordinator");
+                                                                    coordinateIncident({ ...incident, auth_status: "APPROVED" })
+                                                                        .then(processed => useSimulationStore.getState().updateIncident(incident.id, processed));
+                                                                }
+                                                            }}
+                                                            className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-500 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                                                        >
+                                                            Authorize
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
 
                                         {/* Status Stamps for Auth */}
                                         {incident.auth_status === "APPROVED" && (
-                                            <div className="text-center py-1 mt-2 border-t border-emerald-500/20">
-                                                <span className="text-[9px] font-mono text-emerald-500/80 uppercase tracking-widest">
-                                                    ✓ AUTHORIZED EXECUTION
+                                            <div className="text-center py-2 mt-4 border-t border-emerald-500/20 bg-emerald-500/5 rounded-lg">
+                                                <span className="text-[10px] font-mono text-emerald-500 uppercase tracking-widest font-bold flex items-center justify-center gap-2">
+                                                    <CheckCircle2 className="w-4 h-4" />
+                                                    AUTHORIZED EXECUTION
                                                 </span>
                                             </div>
                                         )}
                                         {incident.auth_status === "DENIED" && (
-                                            <div className="text-center py-1 mt-2 border-t border-red-500/20">
-                                                <span className="text-[9px] font-mono text-red-500/80 uppercase tracking-widest">
-                                                    🛑 EXECUTION HALTED
+                                            <div className="text-center py-2 mt-4 border-t border-red-500/20 bg-red-500/5 rounded-lg">
+                                                <span className="text-[10px] font-mono text-red-500 uppercase tracking-widest font-bold flex items-center justify-center gap-2">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                    EXECUTION HALTED
                                                 </span>
                                             </div>
                                         )}
-
-                                        {/* Incident-Specific Voice Command */}
-                                        <div className="pt-2 border-t border-white/5">
-                                            <CommanderControls incidentContext={incident} className="w-full justify-center" />
-                                        </div>
                                     </div>
                                 </div>
                             )}

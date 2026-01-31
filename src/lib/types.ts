@@ -10,7 +10,7 @@ export interface Incident {
         lng: number;
         address?: string;
     };
-    status: "PENDING" | "TRIAGED" | "RESOLVED";
+    status: "PENDING" | "ANALYZING" | "TRIAGED" | "RESOLVED";
     // Enriched Fields from Agents
     priority?: Priority;
     category?: string;

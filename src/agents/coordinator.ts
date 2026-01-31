@@ -6,6 +6,7 @@ import { type Incident } from "@/lib/types";
 import { triageIncident } from "./triage";
 import { analyzeSurveillance } from "./surveillance";
 import { Type } from "@google/genai";
+import { generateContentWithRetry } from "@/lib/gemini-utils";
 
 interface RoutingDecision {
     target_agent: "TRIAGE" | "SURVEILLANCE" | "LOGISTICS";
@@ -49,7 +50,7 @@ Incident Data:
 Determine the target agent for this incident.`;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai.models, {
             model: MODELS.COORDINATOR,
             contents: prompt,
             config: {
@@ -76,7 +77,7 @@ Determine the target agent for this incident.`;
             },
         });
 
-        const result = JSON.parse(response.text || "{}");
+        const result = JSON.parse(response.text() || "{}");
         console.log(`[COORDINATOR] AI Routing Decision: ${result.target_agent} (confidence: ${result.confidence})`);
         console.log(`[COORDINATOR] AI Reasoning: ${result.reasoning}`);
 
@@ -163,7 +164,9 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                        - priority: "CRITICAL".
                  `;
 
-                const response = await ai.models.generateContent({
+                // ... existing code ...
+
+                const response = await generateContentWithRetry(ai.models, {
                     model: MODELS.COORDINATOR,
                     contents: [
                         { text: commandPrompt },
@@ -181,7 +184,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                     }
                 });
 
-                const result = JSON.parse(response.text || "{}");
+                const result = JSON.parse(response.text() || "{}");
                 processedIncident = {
                     ...processedIncident,
                     ...result,

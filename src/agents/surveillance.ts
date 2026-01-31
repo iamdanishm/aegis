@@ -7,6 +7,7 @@ import { Type } from "@google/genai";
 import fs from "fs";
 import path from "path";
 import { extractFrame } from "@/lib/video-utils";
+import { generateContentStreamWithRetry } from "@/lib/gemini-utils";
 
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
@@ -136,7 +137,7 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
             }
         ];
 
-        const resultStream = await ai.models.generateContentStream({
+        const resultStream = await generateContentStreamWithRetry(ai.models, {
             model: MODELS.SURVEILLANCE,
             contents: contents,
             config: {
@@ -209,15 +210,25 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
             }
         }
 
+        if (!fullText || !fullText.trim()) {
+            throw new Error("Empty response from Gemini");
+        }
+
         console.log(`[SURVEILLANCE] Raw text: ${fullText.substring(0, 200)}...`);
 
         let result;
         try {
-            const jsonMatch = fullText.match(/\{[\s\S]*\}/);
-            const jsonStr = jsonMatch ? jsonMatch[0] : fullText;
-            result = JSON.parse(jsonStr);
+            // parsing logic with support for markdown code blocks
+            const jsonMatch = fullText.match(/```json\s*(\{[\s\S]*?\})\s*```/) || fullText.match(/(\{[\s\S]*\})/);
+            const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : fullText;
+
+            // Cleanup standard markdown if regex missed
+            const cleanJsonStr = jsonStr.replace(/```json/g, "").replace(/```/g, "").trim();
+
+            result = JSON.parse(cleanJsonStr);
         } catch (e) {
             console.error(`[SURVEILLANCE] JSON Parsing failed:`, e);
+            console.error(`[SURVEILLANCE] Faulty Text:`, fullText);
             throw new Error("Failed to parse surveillance response");
         }
 

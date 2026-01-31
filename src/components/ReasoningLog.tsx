@@ -185,7 +185,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                         {/* Decorative corner */}
                         <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-cyan-500/10 to-transparent" />
 
-                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed max-h-[300px] overflow-y-auto space-y-3 custom-scrollbar">
+                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed h-[250px] overflow-y-auto space-y-3 custom-scrollbar">
                             {pendingIncident && (
                                 <div className="animate-pulse flex flex-col gap-2">
                                     {rawThinkingProcess ? (

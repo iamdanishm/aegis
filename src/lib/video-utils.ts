@@ -4,8 +4,19 @@ import path from 'path';
 import fs from 'fs';
 
 // Set the path to the ffmpeg binary
+// Set the path to the ffmpeg binary
 if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
+    if (fs.existsSync(ffmpegPath)) {
+        ffmpeg.setFfmpegPath(ffmpegPath);
+    } else {
+        // Fallback for some windows structures or monorepos
+        const altPath = path.join(process.cwd(), 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
+        if (fs.existsSync(altPath)) {
+            ffmpeg.setFfmpegPath(altPath);
+        } else {
+            console.warn(`[VIDEO-UTILS] Warning: ffmpeg-static binary not found at ${ffmpegPath} or ${altPath}!`);
+        }
+    }
 } else {
     console.warn("[VIDEO-UTILS] Warning: ffmpeg-static binary not found! Video frame extraction may fail.");
 }

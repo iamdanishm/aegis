@@ -105,25 +105,25 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
                 onMouseLeave={stopRecording}
                 disabled={isProcessing}
                 className={cn(
-                    "relative group h-7 px-3 rounded-md flex items-center gap-2 font-mono text-[10px] font-bold transition-all duration-200 border overflow-hidden",
+                    "relative group py-2 px-4 rounded-lg flex items-center gap-2.5 font-mono text-[10px] uppercase tracking-wider font-bold transition-all duration-300 border overflow-hidden",
                     isRecording
-                        ? "bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]"
+                        ? "bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.6)] scale-105"
                         : isProcessing
                             ? "bg-amber-500/10 border-amber-500/50 text-amber-400 cursor-wait"
                             : !isMicAuthorized
                                 ? "bg-zinc-900 border-red-900/50 text-red-700 opacity-50 cursor-not-allowed"
-                                : "bg-emerald-900/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/40"
+                                : "bg-emerald-500/5 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:scale-[1.02]"
                 )}
                 title={!isMicAuthorized ? "Microphone permission denied" : "Hold to speak for Voice Command"}
             >
                 <div className={cn(
-                    "w-1.5 h-1.5 rounded-full transition-colors",
-                    isRecording ? "bg-white animate-[pulse_0.2s_infinite]" : "bg-current"
+                    "w-1.5 h-1.5 rounded-full transition-all duration-300",
+                    isRecording ? "bg-white animate-[pulse_0.2s_infinite] scale-125" : "bg-current"
                 )} />
 
-                {isRecording ? "TRANSMITTING..." : isProcessing ? "PROCESSING" : "VOICE OVERRIDE"}
+                {isRecording ? "TRANSMITTING..." : isProcessing ? "PROCESSING UPLINK..." : "VOICE OVERRIDE"}
 
-                <Mic className={cn("w-3 h-3 ml-1", isRecording && "fill-current")} />
+                <Mic className={cn("w-3.5 h-3.5 ml-0.5", isRecording && "fill-current animate-bounce")} />
             </button>
         </div>
     );
