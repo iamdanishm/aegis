@@ -184,7 +184,8 @@ export async function POST(req: NextRequest) {
                         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                     } else {
                         // Fallback
-                        const event = { type: "error", message: "Failed to parse JSON" };
+                        console.error("[ROUTE] JSON Parse Failed. Full Text:", fullText);
+                        const event = { type: "error", message: `Failed to parse JSON. Got: ${fullText.substring(0, 100)}...` };
                         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
                     }
                 } catch (e: any) {

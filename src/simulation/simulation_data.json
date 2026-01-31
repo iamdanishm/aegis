@@ -10,5 +10,17 @@
             "address": "Manhattan, New York, USA"
         },
         "status": "PENDING"
+    },
+    {
+        "id": "EVT-VIDEO-001",
+        "trigger_time_offset": 15,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v1.mp4",
+        "location": {
+            "lat": 19.0760,
+            "lng": 72.8777,
+            "address": "Marine Drive, Mumbai, India"
+        },
+        "status": "PENDING"
     }
 ]

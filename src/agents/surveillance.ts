@@ -6,6 +6,7 @@ import { type Incident } from "@/lib/types";
 import { Type } from "@google/genai";
 import fs from "fs";
 import path from "path";
+import { extractFrame } from "@/lib/video-utils";
 
 import { MOCK_RESPONSES } from "@/simulation/mock_responses";
 
@@ -79,23 +80,39 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
         mediaData = incident.raw_input.replace(/^data:video\/\w+;base64,/, "");
     }
 
+    const isImage = mimeType.startsWith("image/");
     const systemInstruction = `
     You are an AI Surveillance Officer. You are analyzing a drone video stream or image feed.
+
+    ${isImage ? `
+    AGENTIC VISION ENABLED:
+    - You have the ability to WRITE and EXECUTE Python code to zoom in, crop, and inspect images.
+    - If details (text, faces, license plates, small landmarks) are too small to see, you MUST use 'zoom' to inspect them.
+    - Formulate a plan: Think -> Zoom/Crop -> Observe -> Result.
+    - This is critical for VISUAL FORENSICS.
+    ` : `
+    NOTE: AGENTIC VISION (Zoom/Crop via Code) is currently RESTRICTED to still images. 
+    For this VIDEO feed, focus on temporal analysis.
+    
+    IMPORTANT: If you see a potential CLUE (sign, landmark, text) that is too small or blurred to read:
+    1. Set "needs_visual_forensics" to output TRUE.
+    2. Continue with general analysis.
+    The system will automatically extract a high-res frame and re-run the Agentic Vision for you.
+    `}
 
     ANALYSIS TASKS:
     1. VISUAL FORENSICS (CRITICAL):
        - If coordinates are MISSING (0,0) or unknown, you MUST analyze the visual frame for LOCATION CLUES.
        - Look for: Street Signs, Landmarks, Business Names, License Plates, distinctive geography.
-       - If a clue is found, use Google Search Grounding to find its address.
+       ${isImage ? "- If a clue is found, use the AGENTIC VISION to zoom in and verify." : "- If a clue is small/blurred, request FORENSICS (needs_visual_forensics=true)."}
+       - Use Google Search Grounding (if available) to find the final address after verification.
        - Output the inferred location in 'extracted_address', 'extracted_lat', 'extracted_lng'.
        - Set 'location_source' to "VISUAL_LANDMARK".
     
     2. Analyze the video frame/image for structural damage and flood levels.
     3. Determine the PRIORITY and CATEGORY.
     4. Provide a REASONING TRACE.
-    5. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment (Boats, Helicopters, etc.).
-       - If YES: Set "requires_logistics" to true and suggest an asset type (e.g. "Marine Rescue").
-       - If NO: Set "requires_logistics" to false.
+    5. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
     `;
 
     const userPrompt = `
@@ -139,10 +156,14 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                         people_safety: { type: Type.STRING },
                         requires_logistics: { type: Type.BOOLEAN },
                         suggested_asset_type: { type: Type.STRING },
-                        location_source: { type: Type.STRING, enum: ["VISUAL_LANDMARK", "UNKNOWN"] }
+                        location_source: { type: Type.STRING, enum: ["VISUAL_LANDMARK", "UNKNOWN"] },
+                        needs_visual_forensics: { type: Type.BOOLEAN, description: "Set to true if a detailed zoom is needed on a video frame." }
                     },
                     required: ["flood_level", "structural_damage", "reasoning_trace", "category", "requires_logistics"],
                 },
+                tools: isImage ? [
+                    { codeExecution: {} }
+                ] : [],
                 thinkingConfig: {
                     includeThoughts: true,
                     thinkingLevel: "HIGH" as any
@@ -156,19 +177,32 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
         let fullText = "";
         let collectedThoughts = "";
 
+        if (!isImage && onThought) {
+            onThought("[SYSTEM] Agentic Vision (Zoom/Crop) is currently restricted to still images. Performing high-fidelity video analysis...\n");
+        }
+
         for await (const chunk of resultStream) {
             const parts = chunk.candidates?.[0]?.content?.parts || [];
             for (const part of parts) {
                 if (part.thought) {
                     collectedThoughts += part.text;
                     if (onThought && part.text) {
-                        // CINEMATIC SMOOTHING:
                         const chunkText = part.text;
                         for (let i = 0; i < chunkText.length; i += 5) {
                             onThought(chunkText.slice(i, i + 5));
                             await delay(15);
                         }
                     }
+                } else if (part.executableCode) {
+                    const codeMsg = `\n[AGENTIC VISION] Formulating Plan: ${part.executableCode.language}\n\`\`\`python\n${part.executableCode.code}\n\`\`\`\n`;
+                    collectedThoughts += codeMsg;
+                    if (onThought) onThought(codeMsg);
+                    console.log(`[SURVEILLANCE] Generated Code:`, part.executableCode.code);
+                } else if (part.codeExecutionResult) {
+                    const resMsg = `\n[AGENTIC VISION] Execution Result: ${part.codeExecutionResult.outcome}\nOutput: ${part.codeExecutionResult.output}\n`;
+                    collectedThoughts += resMsg;
+                    if (onThought) onThought(resMsg);
+                    console.log(`[SURVEILLANCE] Execution Output:`, part.codeExecutionResult.output);
                 } else if (part.text) {
                     fullText += part.text;
                 }
@@ -242,6 +276,63 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                 lng: result.extracted_lng,
                 address: result.extracted_address
             };
+        }
+
+        // =================================================================================
+        // MULTI-PASS FORENSIC LOOP (For Videos)
+        // =================================================================================
+        if (result.needs_visual_forensics && !isImage && incident.raw_input.startsWith("/")) {
+            console.log(`[SURVEILLANCE] 🔍 Forensic Zoom Requested! Initiating Pass 2...`);
+
+            if (onThought) onThought("\n[SYSTEM] Detail Obscured. Auto-extracting High-Res Frame for Forensic Zoom...\n");
+
+            try {
+                // 1. Extract Frame
+                const videoPath = path.join(process.cwd(), "public", incident.raw_input);
+                const framesDir = path.join(process.cwd(), "public", "forensics");
+                const framePath = await extractFrame(videoPath, framesDir, "00:00:02"); // Sample 2s in for stability
+
+                // 2. Create Forensic Incident (Recursive Call)
+                // We map the absolute path to a relative public path for the recursion to handle it correctly
+                // or we can pass base64 directly? 
+                // The current logic at top of file handles absolute paths if they are in public? 
+                // Let's use the relative path logic since lines 58-60 use path.join(cwd, public, raw_input)
+
+                const relativeFramePath = "/forensics/" + path.basename(framePath);
+
+                const forensicIncident: Incident = {
+                    ...incident,
+                    id: incident.id + "-FORENSIC",
+                    raw_input: relativeFramePath,
+                    type: "IMAGE" // Force Image type to enable Agentic Vision
+                };
+
+                console.log(`[SURVEILLANCE] Analyzing forensic frame: ${relativeFramePath}`);
+
+                // 3. Recursive Call (Pass 2)
+                const forensicResult = await analyzeSurveillance(forensicIncident, onThought);
+
+                // 4. Merge Results
+                if (forensicResult.reasoning_trace) {
+                    responseObj.reasoning_trace += `\n\n=== FORENSIC ANALYSIS ===\n${forensicResult.reasoning_trace}`;
+                }
+
+                // Override location if forensics found a better one
+                if (forensicResult.location) {
+                    console.log(`[SURVEILLANCE] 🎯 Updating location from forensic pass: ${forensicResult.location.address}`);
+                    responseObj.location = forensicResult.location;
+                    responseObj.location_source = "VISUAL_LANDMARK";
+
+                    // Also update extracted fields
+                    result.extracted_address = forensicResult.location.address;
+                }
+
+                console.log(`[SURVEILLANCE] Forensic Pass Complete.`);
+
+            } catch (err) {
+                console.error(`[SURVEILLANCE] Forensic Pass Failed:`, err);
+                if (onThought) onThought(`\n[SYSTEM] Forensic extraction failed: ${err}\n`);
+            }
         }
 
         return responseObj;

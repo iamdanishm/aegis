@@ -37,9 +37,38 @@ const PRIORITY_COLORS = {
 // --- Custom HTML Marker Generator ---
 const createPulseIcon = (incident: Incident) => {
     const isAnalyzing = incident.status === "PENDING";
+    const isSignalLost = incident.manual_trace_required;
     const color = PRIORITY_COLORS[incident.priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.DEFAULT;
 
     // Using Tailwind arbitrary values in the HTML string for the icon
+    // For Signal Lost, we show a Drone/Asset node style
+    if (isSignalLost) {
+        const html = `
+            <div class="relative flex items-center justify-center w-full h-full">
+                <!-- Warning Ripple -->
+                <div class="absolute inset-[-12px] border border-amber-500/30 rounded-full animate-ping-slow"></div>
+                <div class="absolute inset-[-6px] border border-amber-500/50 rounded-full animate-pulse" style="border-style: dashed;"></div>
+                
+                <!-- Unconfirmed/Question Mark Icon -->
+                <div class="w-8 h-8 flex items-center justify-center bg-zinc-950/90 border border-amber-500 text-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)] z-20 backdrop-blur-sm">
+                    <span class="font-mono font-bold text-lg">?</span>
+                </div>
+                
+                <!-- Label -->
+                 <span class="absolute -bottom-6 text-[9px] font-mono font-bold text-amber-500 bg-black/90 px-1.5 py-0.5 rounded border border-amber-500/30 whitespace-nowrap z-20 uppercase tracking-wider">
+                    UNCONFIRMED
+                </span>
+            </div>
+        `;
+        return divIcon({
+            className: "custom-marker-group group",
+            html: html,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+            popupAnchor: [0, -20],
+        });
+    }
+
     const html = `
         <div class="relative flex items-center justify-center w-full h-full">
             ${/* Outer Ring / Ripple */ ""}

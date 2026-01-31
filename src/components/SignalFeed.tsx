@@ -59,7 +59,8 @@ export function SignalFeed({ className }: { className?: string }) {
 
     const handleNavigate = (e: React.MouseEvent, incident: Incident) => {
         e.stopPropagation();
-        if (incident.location && incident.location.lat && incident.location.lng) {
+        // Allow navigation if location exists OR if it's a manual trace (which falls back to metadata/0)
+        if ((incident.location && typeof incident.location.lat === 'number') || incident.manual_trace_required) {
             // Navigation logic connected to map via store
             if (useSimulationStore.getState().setFocusedIncidentId) {
                 useSimulationStore.getState().setFocusedIncidentId(incident.id);
@@ -205,8 +206,9 @@ export function SignalFeed({ className }: { className?: string }) {
                 )}
                 {[...incidents].reverse().map((incident, index) => {
                     const isExpanded = expandedId === incident.id;
-                    const hasLocation = incident.location && incident.location.lat;
                     const cleanRawInput = incident.raw_input.split('/').pop() || incident.raw_input;
+                    // Fix: strictly cast to boolean to avoid rendering "0" if lat is 0
+                    const hasLocation = !!(incident.location && typeof incident.location.lat === 'number');
 
                     return (
                         <div
@@ -335,7 +337,7 @@ export function SignalFeed({ className }: { className?: string }) {
 
                                     {/* Actions Row */}
                                     <div className="flex gap-2">
-                                        {hasLocation && (
+                                        {(hasLocation || incident.manual_trace_required) && (
                                             <button
                                                 onClick={(e) => handleNavigate(e, incident)}
                                                 className="flex-1 flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 py-1.5 rounded text-[10px] font-bold transition-colors"
