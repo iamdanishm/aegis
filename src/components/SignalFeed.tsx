@@ -186,7 +186,9 @@ export function SignalFeed({ className }: { className?: string }) {
                                 isExpanded
                                     ? "bg-opacity-20 ring-1 ring-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)] my-2"
                                     : "hover:scale-[1.01] hover:bg-white/[0.02]",
-                                index === 0 && incident.status === "PENDING" && "ring-1 ring-cyan-500/50 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.15)]"
+                                index === (incidents.length - 1 - incidents.findIndex(i => i.status === "ANALYZING" || i.status === "PENDING")) &&
+                                (incident.status === "PENDING" || incident.status === "ANALYZING") &&
+                                "ring-1 ring-cyan-500/50 animate-pulse shadow-[0_0_15px_rgba(6,182,212,0.15)]"
                             )}
                             style={{ animationDelay: `${index * 100}ms` }}
                         >

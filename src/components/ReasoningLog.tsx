@@ -85,9 +85,8 @@ export function ReasoningLog({ className }: { className?: string }) {
         .reverse()
         .find(i => i.reasoning_trace && i.status === "TRIAGED");
 
-    // Check if there's a pending incident being handled by the Coordinator
-    // We include ANALYZING to ensure the state transition is captured immediately.
-    const pendingIncident = incidents.find(i => i.status === "PENDING" || i.status === "ANALYZING");
+    // Check if there's an incident currently being analyzed, or fallback to the first pending one in queue
+    const pendingIncident = incidents.find(i => i.status === "ANALYZING") || incidents.find(i => i.status === "PENDING");
 
     // Auto-scroll thoughts
     useEffect(() => {

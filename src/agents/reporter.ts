@@ -106,7 +106,15 @@ Return valid JSON only.`;
             }
         });
 
-        const text = response.text() || "";
+        // Robust text extraction for @google/genai SDK
+        let text = "";
+        try {
+            text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "");
+        } catch (e) {
+            console.warn("[REPORTER] response.text() failed, trying manual extraction:", e);
+            text = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        }
+
         console.log("[REPORTER] Raw response length:", text.length);
 
         let data: any = {};

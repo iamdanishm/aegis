@@ -74,85 +74,71 @@ export function useDisasterSimulation() {
     }, [time, isPlaying, addIncident, addLog]);
 
 
+    // Select only what we need for the queue processor to avoid unnecessary re-runs
+    const allIncidents = useSimulationStore(state => state.incidents);
+    const isMockMode = useSimulationStore(state => state.isMockMode);
+
     // ------------------------------------------------------------------
     // 3. Queue Processor (Strict Sequential Processing)
     // ------------------------------------------------------------------
     useEffect(() => {
         const processQueue = async () => {
-            if (!isPlaying || isProcessingRef.current) {
-                return; // Don't process if not playing or already busy
-            }
+            // Check if we should process: must be playing, not already processing, and have pending items
+            if (!isPlaying || isProcessingRef.current) return;
 
-            const { incidents, isMockMode, updateIncident: storeUpdateIncident } = useSimulationStore.getState();
+            const pendingIncident = allIncidents.find(i => i.status === "PENDING");
+            if (!pendingIncident) return;
 
-            // Find the first incident that is PENDING and not yet processed
-            const incidentToProcess = incidents.find(i => i.status === "PENDING");
+            // Set lock immediately
+            isProcessingRef.current = true;
 
-            if (!incidentToProcess) {
-                return; // No incidents in the queue to process
-            }
-
-            isProcessingRef.current = true; // Set lock
-
-            // Mark as ANALYZING to update UI and prevent re-selection (though lock handles re-selection)
-            storeUpdateIncident(incidentToProcess.id, { status: "ANALYZING" } as any);
+            // Mark as ANALYZING in the store - this provides immediate UI feedback
+            updateIncident(pendingIncident.id, { status: "ANALYZING" });
+            addLog(`[${time}s] [COORDINATOR] Starting analysis for ${pendingIncident.id}...`);
 
             try {
-                // Check Mock Mode
                 if (isMockMode) {
+                    // Agent info for UI
+                    const targetAgent = pendingIncident.type === "VIDEO" ? "Surveillance Agent" : "Triage Agent";
+                    const targetModel = pendingIncident.type === "VIDEO" ? MODELS.SURVEILLANCE : MODELS.TRIAGE;
+
+                    useSimulationStore.getState().setActiveAgent(targetAgent);
+                    useSimulationStore.getState().setActiveModel(targetModel);
+
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
                     const { MOCK_RESPONSES } = await import("@/simulation/mock_responses");
-                    const mockData = MOCK_RESPONSES[incidentToProcess.id];
+                    const mockData = MOCK_RESPONSES[pendingIncident.id] || {
+                        status: "TRIAGED",
+                        priority: "MEDIUM",
+                        reasoning_trace: "Standard mock analysis complete."
+                    };
 
-                    if (mockData) {
-                        // Set agent info for UI feedback in mock mode
-                        const targetAgent = incidentToProcess.type === "VIDEO" ? "Surveillance Agent" : "Triage Agent";
-                        const targetModel = incidentToProcess.type === "VIDEO" ? MODELS.SURVEILLANCE : MODELS.TRIAGE;
-
-                        useSimulationStore.getState().setActiveAgent(targetAgent);
-                        useSimulationStore.getState().setActiveModel(targetModel);
-
-                        // Simulate processing delay
-                        await new Promise(resolve => setTimeout(resolve, 1500));
-                        const processed = { ...incidentToProcess, ...mockData, status: "TRIAGED" }; // Ensure final status
-
-                        // Release lock BEFORE update to allow effect re-trigger for next item
-                        isProcessingRef.current = false;
-                        useSimulationStore.getState().setActiveAgent(null);
-                        useSimulationStore.getState().setActiveModel(null);
-                        storeUpdateIncident(incidentToProcess.id, processed as any);
-
-                        addLog(`[${time}s] [COORDINATOR] Flow complete for ${incidentToProcess.id}.`);
-                    } else {
-                        addLog(`[${time}s] [COORDINATOR] No mock data for ${incidentToProcess.id}`);
-                        // Release lock BEFORE update
-                        isProcessingRef.current = false;
-                        storeUpdateIncident(incidentToProcess.id, { status: "TRIAGED" } as any);
-                    }
+                    updateIncident(pendingIncident.id, { ...mockData, status: "TRIAGED" });
+                    addLog(`[${time}s] [COORDINATOR] Mock Analysis complete for ${pendingIncident.id}`);
                 } else {
-                    // Call Streaming Coordinator (Real-time Glass Box)
-                    setRawThinkingProcess(""); // Reset thinking buffer
+                    // Real-time Streaming AI
+                    setRawThinkingProcess("");
 
                     const response = await fetch("/api/coordinate/stream", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ ...incidentToProcess, status: "ANALYZING" }), // Pass updated abstract
+                        body: JSON.stringify({ ...pendingIncident, status: "ANALYZING" }),
                     });
 
                     if (!response.body) throw new Error("No response body");
 
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
-                    let processed = incidentToProcess;
                     let fullThinking = "";
                     let buffer = "";
+                    let latestResult = pendingIncident;
 
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
 
-                        const chunk = decoder.decode(value, { stream: true });
-                        buffer += chunk;
-
+                        buffer += decoder.decode(value, { stream: true });
                         const lines = buffer.split("\n");
                         buffer = lines.pop() || "";
 
@@ -160,72 +146,57 @@ export function useDisasterSimulation() {
                             if (!line.trim()) continue;
                             try {
                                 const event = JSON.parse(line);
-                                if (event.type === "thought") {
-                                    fullThinking += event.content;
-                                    setRawThinkingProcess(fullThinking);
-                                } else if (event.type === "agent_info") {
-                                    useSimulationStore.getState().setActiveAgent(event.agent);
-                                    useSimulationStore.getState().setActiveModel(event.model);
-                                } else if (event.type === "result") {
-                                    processed = { ...incidentToProcess, ...event.data };
-                                } else if (event.type === "error") {
-                                    console.error("Stream Error:", event.message);
-                                } else if (event.type === "audit_log") {
-                                    addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
-                                    useSimulationStore.getState().addAgentAuditLog(event.entry);
+                                switch (event.type) {
+                                    case "thought":
+                                        fullThinking += event.content;
+                                        setRawThinkingProcess(fullThinking);
+                                        break;
+                                    case "agent_info":
+                                        useSimulationStore.getState().setActiveAgent(event.agent);
+                                        useSimulationStore.getState().setActiveModel(event.model);
+                                        break;
+                                    case "result":
+                                        latestResult = { ...pendingIncident, ...event.data };
+                                        break;
+                                    case "audit_log":
+                                        useSimulationStore.getState().addAgentAuditLog(event.entry);
+                                        addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
+                                        break;
+                                    case "error":
+                                        console.error("Stream Error:", event.message);
+                                        break;
                                 }
                             } catch (e) {
-                                console.warn("JSON Parse Error in stream chunk:", line);
+                                // Ignore partial JSON/noise
                             }
                         }
                     }
 
-                    // Finalize
-                    setRawThinkingProcess(null); // Clear thinking state
-                    useSimulationStore.getState().setActiveAgent(null);
-                    useSimulationStore.getState().setActiveModel(null);
-
-                    if (!processed.requires_human_auth || processed.auth_status === "APPROVED") {
-                        addLog(`[${time}s] [COORDINATOR] Analysis complete for ${incidentToProcess.id}.`);
-                    }
-
-                    // Release lock BEFORE update
-                    isProcessingRef.current = false;
-
-                    // Mark as TRIAGED/RESOLVED to clear from queue and trigger next
-                    // Ensure status is not PENDING/ANALYZING if we are done
-                    const finalStatus = processed.auth_status === "PENDING" ? "ANALYZING" : "TRIAGED";
-                    // Wait, if auth is pending, we might want to keep it as ANALYZING or a new "WAITING_AUTH" status?
-                    // Actually, if auth is pending, it shouldn't hold up the queue?
-                    // "In Live Mode, we NEVER pause time for processing. Events spawn and queue up."
-                    // If Protocol Zero holds up the generic queue, that's bad.
-                    // But `processQueue` picks `status === "PENDING"`.
-                    // If we leave it as `ANALYZING` waiting for auth, `processQueue` will pick the NEXT PENDING one.
-                    // THIS IS GOOD. Parallel-ish handling of the auth wait, while processing new events.
-
-                    storeUpdateIncident(incidentToProcess.id, { ...processed, status: finalStatus === "ANALYZING" && processed.requires_human_auth ? "TRIAGED" : "TRIAGED" } as any);
-                    // Force TRIAGED so it doesn't get picked again, even if waiting for auth (Auth is a different state)
+                    // Finalize incident state
+                    updateIncident(pendingIncident.id, {
+                        ...latestResult,
+                        status: "TRIAGED" // Explicitly move to TRIAGED to clear queue
+                    });
+                    addLog(`[${time}s] [COORDINATOR] Finalized analysis for ${pendingIncident.id}`);
                 }
-            } catch (e: any) {
-                console.error(e);
-                addLog(`[${time}s] [COORDINATOR] Error processing ${incidentToProcess.id}: ${e.message || "Unknown error"}`);
+            } catch (error: any) {
+                console.error("[QUEUE] Critical error:", error);
+                updateIncident(pendingIncident.id, {
+                    status: "TRIAGED",
+                    priority: "HIGH",
+                    reasoning_trace: `Error: ${error.message || "Unknown processing error"}. Signal flagged for manual review.`
+                });
+            } finally {
+                // reset transient UI states and release lock
+                isProcessingRef.current = false;
                 setRawThinkingProcess(null);
                 useSimulationStore.getState().setActiveAgent(null);
                 useSimulationStore.getState().setActiveModel(null);
-
-                isProcessingRef.current = false;
-                storeUpdateIncident(incidentToProcess.id, { status: "TRIAGED" } as any);
             }
         };
 
-        // Trigger processing whenever time changes, or INCIDENTS change.
-        // We subscribe to the store's incidents to know when one finishes and next is ready.
-        // We use a simplified dependency to avoid deep equality checks: just the count of pending items?
-        // Actually, depending on `incidents` is fine if the store implementation is stable.
-        // But better: use simulationStore.subscribe inside useEffect?
-        // No, standard React reactivity:
         processQueue();
-    }, [time, isPlaying, addLog, setRawThinkingProcess, useSimulationStore.getState().incidents]);
+    }, [time, isPlaying, allIncidents, isMockMode, updateIncident, addLog, setRawThinkingProcess]);
 
 
     // PROTOCOL ZERO: Timeout Monitor

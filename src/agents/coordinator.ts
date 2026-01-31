@@ -77,7 +77,8 @@ Determine the target agent for this incident.`;
             },
         });
 
-        const result = extractAndParseJSON(response.text() || "{}");
+        const text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+        const result = extractAndParseJSON(text);
         console.log(`[COORDINATOR] AI Routing Decision: ${result.target_agent} (confidence: ${result.confidence})`);
         console.log(`[COORDINATOR] AI Reasoning: ${result.reasoning}`);
 
@@ -184,7 +185,8 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                     }
                 });
 
-                const result = extractAndParseJSON(response.text() || "{}");
+                const text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                const result = extractAndParseJSON(text);
                 processedIncident = {
                     ...processedIncident,
                     ...result,

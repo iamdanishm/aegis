@@ -78,8 +78,9 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
             addLog(`[${time}s] [COMMANDER] 🎙️ "VOICE OF GOD" ${contextMsg} INITIATED...`);
 
             try {
+                updateIncident(commandId, { status: "ANALYZING" });
                 const processed = await coordinateIncident(newIncident);
-                updateIncident(commandId, processed);
+                updateIncident(commandId, { ...processed, status: "RESOLVED" });
                 addLog(`[${time}s] [COMMANDER] Override Executed: ${processed.command_intent || "Order Applied"}`);
                 showNotification("Voice Command Executed Successfully", "success");
 
