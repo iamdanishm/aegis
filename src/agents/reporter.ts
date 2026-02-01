@@ -24,7 +24,7 @@ export async function generateMissionReport(incidents: Incident[], logs: string[
     const groundAssets = incidents.filter(i => i.required_asset === 'GROUND').length;
     const totalDeployments = incidents.filter(i => i.assigned_assets && i.assigned_assets.length > 0).length;
 
-    const geographicImpact = [...new Set(incidents.map(i => i.location?.address?.split(',').slice(-2).join(',').trim()).filter(Boolean))].slice(0, 5);
+    const geographicImpact = [...new Set(incidents.map(i => i.location?.address?.split(',').slice(-2).join(',').trim()).filter((loc): loc is string => !!loc))].slice(0, 5);
 
     const incidents_log = incidents.map(i => ({
         id: i.id,
