@@ -248,7 +248,12 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
             }
         }
 
-        const rawText = fullText || "{}";
+        if (!fullText || !fullText.trim()) {
+            console.warn("[TRIAGE] Empty response from Gemini.");
+            throw new Error("Empty response from Gemini (Triage Analysis Failed)");
+        }
+
+        const rawText = fullText;
         console.log(`[TRIAGE] Raw text: \n${rawText.substring(0, 500)}...`);
 
         // Extracted thoughts are now in collectedThoughts variable

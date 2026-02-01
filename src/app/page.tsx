@@ -6,7 +6,7 @@ import { ReasoningLog } from "@/components/ReasoningLog";
 import { CommanderControls } from "@/components/CommanderControls";
 import { useSimulationStore } from "@/lib/store";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, FileText, Download } from "lucide-react";
+import { AlertCircle, FileText, Download, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
@@ -90,7 +90,7 @@ export default function ResponderView() {
     }
   };
 
-  // One-time mic check on mount
+  // Initial system checks and warm-up
   useEffect(() => {
     const checkMic = async () => {
       try {
@@ -103,7 +103,21 @@ export default function ResponderView() {
         showNotification("Microphone access denied. Voice commands disabled.", "error");
       }
     };
+
+    const warmUpGemini = async () => {
+      console.log("[SYSTEM] Warming up Aegis AI Core...");
+      try {
+        // We call our new GET handler to initialize the AI client and warm up model cache
+        const res = await fetch("/api/coordinate/stream");
+        const data = await res.json();
+        console.log(`[SYSTEM] AI Core Status: ${data.status}`);
+      } catch (e) {
+        console.warn("[SYSTEM] AI Warmup skipped or failed.");
+      }
+    };
+
     checkMic();
+    warmUpGemini();
   }, [setIsMicAuthorized, showNotification]);
 
   // Calculate stats
@@ -223,6 +237,18 @@ export default function ResponderView() {
                   </>
                 )}
               </span>
+            </button>
+
+            <button
+              onClick={() => {
+                localStorage.removeItem("aegis-simulation-store");
+                window.location.reload();
+              }}
+              className="group relative px-3 py-2 rounded-lg font-mono text-xs font-bold tracking-widest transition-all duration-500 overflow-hidden border border-red-900/30 hover:border-red-500/50 text-red-500/50 hover:text-red-400 hover:bg-red-500/5 flex items-center gap-2"
+              title="WIPE DATABASE"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline text-[9px]">WIPE</span>
             </button>
 
             <div className="flex flex-col items-end">

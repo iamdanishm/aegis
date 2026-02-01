@@ -83,20 +83,26 @@ export function useDisasterSimulation() {
     // ------------------------------------------------------------------
     useEffect(() => {
         const processQueue = async () => {
-            // Check if we should process: must be playing, not already processing, and have pending items
+            // Check if we should process: must be playing, not already processing
             if (!isPlaying || isProcessingRef.current) return;
 
-            const pendingIncident = allIncidents.find(i => i.status === "PENDING");
+            // Get the latest state to find the next pending incident
+            const currentIncidents = useSimulationStore.getState().incidents;
+            const pendingIncident = currentIncidents.find(i => i.status === "PENDING");
+
             if (!pendingIncident) return;
 
             // Set lock immediately
             isProcessingRef.current = true;
 
-            // Mark as ANALYZING in the store - this provides immediate UI feedback
-            updateIncident(pendingIncident.id, { status: "ANALYZING" });
-            addLog(`[${time}s] [COORDINATOR] Starting analysis for ${pendingIncident.id}...`);
-
             try {
+                // 1. Mark as ANALYZING in the store IMMEDIATELY - this provides immediate UI feedback
+                updateIncident(pendingIncident.id, { status: "ANALYZING" });
+                addLog(`[${time}s] [COORDINATOR] Starting analysis for ${pendingIncident.id}...`);
+
+                // Give the UI a tiny bit of time to reflect the ANALYZING state before heavy AI work
+                await new Promise(resolve => setTimeout(resolve, 50));
+
                 if (isMockMode) {
                     // Agent info for UI
                     const targetAgent = pendingIncident.type === "VIDEO" ? "Surveillance Agent" : "Triage Agent";
@@ -132,7 +138,8 @@ export function useDisasterSimulation() {
                     const decoder = new TextDecoder();
                     let fullThinking = "";
                     let buffer = "";
-                    let latestResult = pendingIncident;
+                    // Ensure the initial result state reflects ANALYZING status
+                    let latestResult = { ...pendingIncident, status: "ANALYZING" };
 
                     while (true) {
                         const { done, value } = await reader.read();
@@ -156,7 +163,9 @@ export function useDisasterSimulation() {
                                         useSimulationStore.getState().setActiveModel(event.model);
                                         break;
                                     case "result":
-                                        latestResult = { ...pendingIncident, ...event.data };
+                                        // Merge the result data, but keep the status as ANALYZING for now 
+                                        // unless the result specifically overrides it.
+                                        latestResult = { ...latestResult, ...event.data };
                                         break;
                                     case "audit_log":
                                         useSimulationStore.getState().addAgentAuditLog(event.entry);
@@ -164,6 +173,10 @@ export function useDisasterSimulation() {
                                         break;
                                     case "error":
                                         console.error("Stream Error:", event.message);
+                                        latestResult = {
+                                            ...latestResult,
+                                            reasoning_trace: `Analysis Error: ${event.message}. Falling back to manual triage protocol.`
+                                        };
                                         break;
                                 }
                             } catch (e) {
@@ -192,6 +205,15 @@ export function useDisasterSimulation() {
                 setRawThinkingProcess(null);
                 useSimulationStore.getState().setActiveAgent(null);
                 useSimulationStore.getState().setActiveModel(null);
+
+                // Immediately check for the next item in the queue instead of waiting for the next tick
+                // This ensures snappy processing of the queue
+                const nextIncidents = useSimulationStore.getState().incidents;
+                const nextPending = nextIncidents.find(i => i.status === "PENDING");
+                if (nextPending && isPlaying) {
+                    // We don't call it recursively direct to avoid stack overflow, 
+                    // the useEffect will re-trigger anyway because allIncidents changed.
+                }
             }
         };
 
