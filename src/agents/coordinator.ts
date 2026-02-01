@@ -383,14 +383,67 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
             }
         }
 
+        // ================================================================
+        // COMMAND RE-ROUTING: Route commands to appropriate specialist agents
+        // (Issue 4 fix: Commands should route based on intent, not just to Logistics)
+        // ================================================================
+        let commandWasReRouted = false;
+        if (incident.type === "COMMAND" && processedIncident.command_intent) {
+            const intent = (processedIncident.command_intent || "").toUpperCase();
+
+            // Detect command type by keywords
+            const isVideoRelated = /RECHECK|RE-CHECK|ANALYZE.*VIDEO|VIDEO|SURVEILLANCE|FOOTAGE|DRONE|CAMERA|VISUAL|REANALYZE|RE-ANALYZE|VERIFY.*FOOTAGE/i.test(intent);
+            const isTriageRelated = /TRIAGE|CALL|AUDIO|DISTRESS|MEDICAL|PRIORITY|REASSESS|RE-ASSESS|RECHECK.*CALL|VERIFY.*PRIORITY/i.test(intent);
+
+            if (isVideoRelated) {
+                console.log(`[COORDINATOR] Command \"${intent}\" detected as video-related. Re-routing to Surveillance Agent...`);
+                routingTrace += ` [COMMAND REROUTE] \"${intent}\" → Surveillance Agent... `;
+
+                const surveillanceResult = await analyzeSurveillance({
+                    ...processedIncident,
+                    type: "VIDEO",  // Hint to agent
+                    description_for_simulation: `[COMMAND]: ${intent}\n${processedIncident.description_for_simulation || ""}`
+                });
+
+                const existingTrace = processedIncident.reasoning_trace || "";
+                processedIncident = {
+                    ...processedIncident,
+                    ...surveillanceResult,
+                    reasoning_trace: `${existingTrace}\n\n[SURVEILLANCE RECHECK]:\n${surveillanceResult.reasoning_trace || ""}`.trim()
+                };
+                commandWasReRouted = true;
+
+            } else if (isTriageRelated) {
+                console.log(`[COORDINATOR] Command \"${intent}\" detected as triage-related. Re-routing to Triage Agent...`);
+                routingTrace += ` [COMMAND REROUTE] \"${intent}\" → Triage Agent... `;
+
+                const triageResult = await triageIncident({
+                    ...processedIncident,
+                    type: "AUDIO",  // Hint to agent
+                    description_for_simulation: `[COMMAND]: ${intent}\n${processedIncident.description_for_simulation || ""}`
+                });
+
+                const existingTrace = processedIncident.reasoning_trace || "";
+                processedIncident = {
+                    ...processedIncident,
+                    ...triageResult,
+                    reasoning_trace: `${existingTrace}\n\n[TRIAGE REASSESSMENT]:\n${triageResult.reasoning_trace || ""}`.trim()
+                };
+                commandWasReRouted = true;
+            }
+        }
+
         // Secondary Routing: Logistics for high-priority incidents
-        if (
+        // Skip for commands that were already re-routed to specialist agents
+        const shouldRouteToLogistics = (
             (processedIncident.priority === "HIGH" || processedIncident.priority === "CRITICAL") ||
             (processedIncident.flood_level === "SEVERE" || processedIncident.flood_level === "CRITICAL") ||
-            processedIncident.type === "COMMAND" ||
+            (processedIncident.type === "COMMAND" && !commandWasReRouted) ||  // Only route commands that weren't re-routed
             processedIncident.requires_logistics === true ||
             processedIncident.suggested_asset_type?.includes("DRONE")
-        ) {
+        );
+
+        if (shouldRouteToLogistics) {
             routingTrace += " Initiating Logistics/System Update... ";
             const logisticsResult = await import("./logistics").then(m => m.manageLogistics(processedIncident));
             processedIncident = { ...processedIncident, ...logisticsResult };

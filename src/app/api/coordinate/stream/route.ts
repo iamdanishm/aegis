@@ -4,6 +4,7 @@ import { MODELS } from "@/lib/constants";
 import { Incident } from "@/lib/types";
 import { Type } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
+import { generateContentStreamWithRetry } from "@/lib/gemini-utils";
 
 export const runtime = "nodejs";
 
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
 
                 console.log(`[COORDINATOR] Starting AI Routing for ${incident.id} (${incident.type})...`);
 
-                const result = await ai.models.generateContentStream({
+                const result = await generateContentStreamWithRetry(ai.models, {
                     model: MODELS.COORDINATOR,
                     contents: [{ role: "user", parts: [{ text: prompt }] }],
                     config: {

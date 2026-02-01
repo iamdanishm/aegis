@@ -22,6 +22,9 @@ export function useDisasterSimulation() {
     // Ref to track if a processing stream is currently active
     const isProcessingRef = useRef(false);
 
+    // Ref to preserve partial analysis results before abort (for Issue 2 fix)
+    const partialResultRef = useRef<any>(null);
+
     // ------------------------------------------------------------------
     // 1. Simulation Timer (Always runs, decoupled from processing)
     // ------------------------------------------------------------------
@@ -134,6 +137,9 @@ export function useDisasterSimulation() {
 
                     const readerRef = { current: null as ReadableStreamDefaultReader<Uint8Array> | null };
 
+                    // Declare outside try block so it's accessible in catch for abort handling
+                    let latestResult = { ...pendingIncident, status: "ANALYZING" };
+
                     try {
                         const response = await fetch("/api/coordinate/stream", {
                             method: "POST",
@@ -149,8 +155,7 @@ export function useDisasterSimulation() {
                         const decoder = new TextDecoder();
                         let fullThinking = "";
                         let buffer = "";
-                        // Ensure the initial result state reflects ANALYZING status
-                        let latestResult = { ...pendingIncident, status: "ANALYZING" };
+                        // latestResult is now declared above the try block
 
                         while (true) {
                             const { done, value } = await reader.read();
@@ -194,6 +199,8 @@ export function useDisasterSimulation() {
                         }
 
                         // Normal Completion
+                        // Preserve result for potential override merge
+                        partialResultRef.current = latestResult;
                         updateIncident(pendingIncident.id, {
                             ...latestResult,
                             status: "TRIAGED"
@@ -202,6 +209,8 @@ export function useDisasterSimulation() {
 
                     } catch (error: any) {
                         if (error.name === "AbortError" || error.message?.includes("aborted")) {
+                            // Preserve partial analysis before proceeding (for Issue 2 fix)
+                            partialResultRef.current = latestResult;
 
                             // Check if this was a Context Injection (Same Incident) or Preemption (Different Incident)
                             const freshState = useSimulationStore.getState().incidents.find(i => i.id === pendingIncident.id);
@@ -295,17 +304,19 @@ export function useDisasterSimulation() {
                                 }
 
                                 // MERGE override result with original analysis
-                                // Clean up any trailing whitespace
-                                const cleanOriginalTrace = (freshIncident.reasoning_trace || "").trim();
+                                // Use preserved partial result if available (for Issue 2 fix)
+                                const preservedAnalysis = partialResultRef.current;
+                                const cleanOriginalTrace = (preservedAnalysis?.reasoning_trace || freshIncident.reasoning_trace || "").trim();
 
-                                // Merge Assets
+                                // Merge Assets - use preserved data if available
                                 const mergedAssets = Array.from(new Set([
-                                    ...(freshIncident.assigned_assets || []),
+                                    ...(preservedAnalysis?.assigned_assets || freshIncident.assigned_assets || []),
                                     ...(overrideResult.assigned_assets || []).filter((a: string) => a !== "SYSTEM_UPDATE")
                                 ]));
 
                                 updateIncident(pendingIncident.id, {
-                                    ...freshIncident, // Keep base
+                                    ...preservedAnalysis, // Start with preserved analysis (may be partial)
+                                    ...freshIncident, // Layer fresh state
                                     ...overrideResult, // Overwrite with NEW AI findings (Location, Priority, Title, etc.)
                                     // Append with separator for SignalFeed visibility, but ReasoningLog will hide it.
                                     reasoning_trace: `${cleanOriginalTrace}\n\n[COMMAND OVERRIDE]: ${overrideResult.command_intent || "Executed"}\n${overrideResult.reasoning_trace || ""}`.trim(),
@@ -323,6 +334,7 @@ export function useDisasterSimulation() {
                         } finally {
                             setRawThinkingProcess(null);
                             useSimulationStore.getState().setIsVoiceProcessing(false);
+                            partialResultRef.current = null; // Reset for next event
                         }
                     }
                 }
