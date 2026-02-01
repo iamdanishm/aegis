@@ -114,12 +114,13 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
        - If "MANUAL_TRACE_REQUIRED", set 'requires_logistics' = true and 'suggested_asset_type' = "RECON_DRONE".
        - If the incident is unverified by grounding but plausible, set 'requires_logistics' = true and 'suggested_asset_type' = "DRONE_VERIFICATION".
 
-    PRIORITY RULES (STRICT):
-    - GROUNDING OVERRIDE: If the googleSearch tool returns NO evidence of a disaster in the reported area, or if official reports (news, weather) contradict the claim, you MUST DOWNGRADE priority to LOW or MEDIUM.
-    - UNCERTAINTY & FAKES: If you suspect the incident is fake, historical, or low-urgency due to lack of corroborating news, use LOW priority.
-    - VERIFICATION PROTOCOL: If the signal is plausible but unverified by grounding, set priority to MEDIUM (Investigative) and request "DRONE_VERIFICATION".
-    - DO NOT set to CRITICAL or HIGH unless there is strong corroborating evidence or the signal is extremely detailed and consistent.
-    - "Unknown Location" or "Signal Lost" incidents must never be CRITICAL. Max: MEDIUM.
+    PRIORITY RULES (STRICT BRAKE):
+    - NO EVIDENCE = NO ESCALATION: If the googleSearch tool (GROUNDING) returns NO evidence of a disaster in the reported area, or if official news contradicts the claim, you MUST set priority to LOW.
+    - FAKES & HISTORICAL: If your reasoning identifies the signal as likely fake, re-circulated footage, or a historical event, you MUST set priority to LOW.
+    - VERIFICATION PROTOCOL: If the signal is plausible but unverified by grounding, the MAXIMUM priority is MEDIUM. Request "DRONE_VERIFICATION".
+    - "Unknown Location" or "Signal Lost" incidents must NEVER be HIGH or CRITICAL. Max: MEDIUM.
+    - CRITICAL is reserved EXCLUSIVELY for real-time, verified life-threatening emergencies with corroborating evidence.
+    - If you are UNCERTAIN, default to MEDIUM, never HIGH or CRITICAL.
 
     RESPONSE FORMAT (JSON):
     {

@@ -90,9 +90,15 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
        - Set 'location_source' to "VISUAL_LANDMARK".
     
     2. Analyze the video frame/image for structural damage and flood levels.
-    3. Determine the PRIORITY and CATEGORY.
-    4. Provide a REASONING TRACE.
-    5. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
+    3. AUTHENTICITY CHECK: Look for visual indicators of re-circulated footage (e.g., date stamps in the past, mismatched weather, low-resolution artifacts).
+    4. Determine the CATEGORY.
+    5. Provide a REASONING TRACE.
+    6. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
+    
+    PRIORITY RULES (STRICT):
+    - If you suspect the footage is HISTORICAL or FAKE (mismatched metadata/visuals), set is_authentic = false and priority = LOW.
+    - If unverified but plausible, set priority = MEDIUM and request "DRONE_VERIFICATION".
+    - CRITICAL is reserved for verified, immediate threats found in authentic footage.
     `;
 
     const userPrompt = `
@@ -136,11 +142,13 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                         people_safety: { type: Type.STRING },
                         requires_logistics: { type: Type.BOOLEAN },
                         suggested_asset_type: { type: Type.STRING },
-                        location_source: { type: Type.STRING, enum: ["VISUAL_LANDMARK", "UNKNOWN"] }
+                        location_source: { type: Type.STRING, enum: ["VISUAL_LANDMARK", "UNKNOWN"] },
+                        is_authentic: { type: Type.BOOLEAN },
+                        priority: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] }
                     },
-                    required: ["flood_level", "structural_damage", "reasoning_trace", "category", "requires_logistics"],
+                    required: ["flood_level", "structural_damage", "reasoning_trace", "category", "requires_logistics", "is_authentic", "priority"],
                 },
-                // NO TOOLS (Code Execution Removed)
+                tools: [{ googleSearch: {} }],
                 thinkingConfig: {
                     includeThoughts: true,
                     thinkingLevel: ThinkingLevel.HIGH
@@ -198,31 +206,29 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
 
         console.log(`[SURVEILLANCE] Result for ${incident.id}: Flood ${result.flood_level}, Damage: ${result.structural_damage}`);
 
-        // Calculate Priority
-        let calculatedPriority = "LOW";
-        const flood = (result.flood_level || "").toLowerCase();
-        const damage = (result.structural_damage || "").toLowerCase();
+        // Primary source: AI determined priority
+        let calculatedPriority = (result.priority || "LOW").toUpperCase();
 
-        if (flood.includes("critical") || flood.includes("severe") || damage.includes("collapse") || damage.includes("destroyed")) {
-            calculatedPriority = "CRITICAL";
-        } else if (flood.includes("moderate") || damage.includes("severe") || damage.includes("major")) {
-            calculatedPriority = "HIGH";
-        } else if (flood.includes("low") || damage.includes("moderate")) {
-            calculatedPriority = "MEDIUM";
+        // Safety override: If AI flagged as fake, force LOW
+        if (result.is_authentic === false) {
+            console.log(`[SURVEILLANCE] 🛡️ AUTHENTICITY CHECK FAILED. Downgrading to LOW.`);
+            calculatedPriority = "LOW";
         }
 
-        // Human Factor Overwrites
-        const peopleCount = result.people_count_estimate || 0;
-        const safety = (result.people_safety || "").toLowerCase();
+        // Secondary verification: Human Factor Overwrites (only if authentic)
+        if (result.is_authentic !== false) {
+            const peopleCount = result.people_count_estimate || 0;
+            const safety = (result.people_safety || "").toLowerCase();
 
-        if (peopleCount > 0) {
-            if (safety.includes("danger") || safety.includes("trapped") || safety.includes("injured") || safety.includes("critical")) {
-                calculatedPriority = "CRITICAL";
-            } else if (calculatedPriority === "LOW") {
-                // If people are present but seemingly safe, bump to MEDIUM for verification
-                calculatedPriority = "MEDIUM";
-                result.requires_logistics = true;
-                result.suggested_asset_type = "RECON_DRONE";
+            if (peopleCount > 0) {
+                if (safety.includes("danger") || safety.includes("trapped") || safety.includes("injured") || safety.includes("critical")) {
+                    calculatedPriority = "CRITICAL";
+                } else if (calculatedPriority === "LOW") {
+                    // If people are present but seemingly safe, bump to MEDIUM for verification
+                    calculatedPriority = "MEDIUM";
+                    result.requires_logistics = true;
+                    result.suggested_asset_type = "RECON_DRONE";
+                }
             }
         }
 

@@ -99,10 +99,14 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
            - If confirmed as happening NOW, flag as "VERIFIED".
 
         2. Search for current road closures or flooding reports in this specific area using Google Search.
-        3. DETERMINE the required asset type: 
-           - **CRITICAL RULE**: If verification_status is "HISTORICAL" or "UNVERIFIED", DO NOT recommend high-value assets like "Marine Rescue" or "Blackhawk". Instead, recommend "Drone Surveillance" or "Police Patrol" for initial confirmation.
-           - If VERIFIED: "AIR" (if inaccessible), "MARINE" (if flooded), or "GROUND" (if clear).
-        4. Recommend the best specific vehicle based on verification status and accessibility.
+         3. DETERMINE the required asset type: 
+            - **CRITICAL RULE**: If verification_status is "HISTORICAL" or "UNVERIFIED", DO NOT recommend high-value assets like "Marine Rescue" or "Blackhawk". Instead, recommend "Drone Surveillance" or "Police Patrol" for initial confirmation.
+            - If VERIFIED: "AIR" (if inaccessible), "MARINE" (if flooded), or "GROUND" (if clear).
+         4. Recommend the best specific vehicle based on verification status and accessibility.
+         5. PRIORITY RE-EVALUATION:
+            - If verification_status is "HISTORICAL", you MUST downgrade the incident priority to "LOW".
+            - If "UNVERIFIED" but high-stakes, set priority to "MEDIUM".
+            - Never allow a "HISTORICAL" event to remain "CRITICAL".
         `;
     }
 
@@ -120,6 +124,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     - recommended_asset: The best vehicle for the job (or "ALL UNITS" if command implies).
     - required_asset_type: "AIR" | "MARINE" | "GROUND" | "General".
     - verification_status: "VERIFIED" | "UNVERIFIED" | "HISTORICAL".
+    - priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" (Use this to downgrade if historical).
     - routing_notes: Explanation of the route, verification findings, and any hazards.
     - road_status: Summary of road conditions found using Grounding.
 
@@ -204,8 +209,8 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
             assigned_assets: [result.recommended_asset],
             required_asset: (result.required_asset_type || "General").toUpperCase() as any,
             reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes,
-
-            verification_status: result.verification_status || "UNVERIFIED"
+            verification_status: result.verification_status || "UNVERIFIED",
+            priority: result.priority || incident.priority
         };
 
     } catch (error) {

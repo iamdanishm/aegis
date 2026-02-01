@@ -67,7 +67,8 @@ export default function ResponderView() {
     report,
     setIsReportOpen,
     isGeneratingReport,
-    setIsGeneratingReport
+    setIsGeneratingReport,
+    setIsSimulationComplete
   } = useSimulationStore();
 
   const handleGenerateReport = async () => {
@@ -189,8 +190,9 @@ export default function ResponderView() {
             <button
               onClick={() => {
                 if (!isPlaying) {
-                  // Starting new simulation - reset report state
+                  // Starting new simulation - reset state
                   setReport(null);
+                  setIsSimulationComplete(false);
                 }
                 setIsPlaying(!isPlaying);
               }}
