@@ -62,6 +62,9 @@ export interface Incident {
         lng: number;
         source: string;
     };
+
+    // Voice Context Injection
+    transcript_context?: string;
 }
 
 export interface AgentAuditLog {

@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
     - Raw Input: ${incident.raw_input.substring(0, 200)}
     - Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
     - Status: ${incident.status}
+    - Context/Description: ${incident.description_for_simulation || "N/A"}
     
     Determine the target agent.`;
 
@@ -65,16 +66,27 @@ export async function POST(req: NextRequest) {
 
     const stream = new ReadableStream({
         async start(controller) {
+            const safeEnqueue = (data: Uint8Array) => {
+                try {
+                    // Check if controller is still writable (desiredSize is null if errored/closed)
+                    // But easier to just try/catch
+                    controller.enqueue(data);
+                } catch (e) {
+                    // Client likely aborted/disconnected. Ignore.
+                    // console.warn("[STREAM WARN] Failed to enqueue, client might have disconnected:", e);
+                }
+            };
+
             try {
                 // Emit initial status for instant UI feedback
                 const initEvent = { type: "thought", content: "Coordinator: Analyzing incident inputs..." };
-                controller.enqueue(encoder.encode(JSON.stringify(initEvent) + "\n"));
+                safeEnqueue(encoder.encode(JSON.stringify(initEvent) + "\n"));
 
                 const agentInfo = { type: "agent_info", agent: "Coordinator", model: MODELS.COORDINATOR };
-                controller.enqueue(encoder.encode(JSON.stringify(agentInfo) + "\n"));
+                safeEnqueue(encoder.encode(JSON.stringify(agentInfo) + "\n"));
 
                 const connectEvent = { type: "thought", content: " [SYSTEM] Connecting to Aegis Satellite Network..." };
-                controller.enqueue(encoder.encode(JSON.stringify(connectEvent) + "\n"));
+                safeEnqueue(encoder.encode(JSON.stringify(connectEvent) + "\n"));
 
                 console.log(`[COORDINATOR] Starting AI Routing for ${incident.id} (${incident.type})...`);
 
@@ -106,7 +118,7 @@ export async function POST(req: NextRequest) {
                                 fullText += part.text;
                                 if (!fullText.trim().startsWith("{") && !part.text.includes('"target_agent"')) {
                                     const event = { type: "thought", content: part.text };
-                                    controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+                                    safeEnqueue(encoder.encode(JSON.stringify(event) + "\n"));
                                 }
                             }
                         }
@@ -136,27 +148,27 @@ export async function POST(req: NextRequest) {
                         reasoning: "AI routing inconclusive. Engaging standard fallback protocol."
                     };
                     const debugEvent = { type: "thought", content: `\n[SYSTEM] AI Routing inconclusive. Engaging Fallback Protocol: ${fallbackTarget}...\n` };
-                    controller.enqueue(encoder.encode(JSON.stringify(debugEvent) + "\n"));
+                    safeEnqueue(encoder.encode(JSON.stringify(debugEvent) + "\n"));
                 }
 
                 const targetAgent = routingResult.target_agent;
                 const streamThought = (text: string) => {
                     const event = { type: "thought", content: text };
-                    controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+                    safeEnqueue(encoder.encode(JSON.stringify(event) + "\n"));
                 };
 
                 let agentResult: any = {};
 
                 if (targetAgent === "TRIAGE") {
-                    controller.enqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Triage Agent", model: MODELS.TRIAGE }) + "\n"));
+                    safeEnqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Triage Agent", model: MODELS.TRIAGE }) + "\n"));
                     const { triageIncident } = await import("@/agents/triage");
                     agentResult = await triageIncident(incident, streamThought);
                 } else if (targetAgent === "SURVEILLANCE") {
-                    controller.enqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Surveillance Agent", model: MODELS.SURVEILLANCE }) + "\n"));
+                    safeEnqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Surveillance Agent", model: MODELS.SURVEILLANCE }) + "\n"));
                     const { analyzeSurveillance } = await import("@/agents/surveillance");
                     agentResult = await analyzeSurveillance(incident, streamThought);
                 } else if (targetAgent === "LOGISTICS") {
-                    controller.enqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Logistics Agent", model: MODELS.LOGISTICS }) + "\n"));
+                    safeEnqueue(encoder.encode(JSON.stringify({ type: "agent_info", agent: "Logistics Agent", model: MODELS.LOGISTICS }) + "\n"));
                     const { manageLogistics } = await import("@/agents/logistics");
                     agentResult = await manageLogistics(incident, streamThought);
                 }
@@ -170,7 +182,7 @@ export async function POST(req: NextRequest) {
 
                     if ((logisticsResult as any)._audit_logs && Array.isArray((logisticsResult as any)._audit_logs)) {
                         for (const log of (logisticsResult as any)._audit_logs) {
-                            controller.enqueue(encoder.encode(JSON.stringify({ type: "audit_log", entry: log }) + "\n"));
+                            safeEnqueue(encoder.encode(JSON.stringify({ type: "audit_log", entry: log }) + "\n"));
                         }
                     }
                     agentResult = { ...agentResult, ...logisticsResult };
@@ -178,7 +190,7 @@ export async function POST(req: NextRequest) {
 
                 if ((agentResult as any)._audit_logs && Array.isArray((agentResult as any)._audit_logs)) {
                     for (const log of (agentResult as any)._audit_logs) {
-                        controller.enqueue(encoder.encode(JSON.stringify({ type: "audit_log", entry: log }) + "\n"));
+                        safeEnqueue(encoder.encode(JSON.stringify({ type: "audit_log", entry: log }) + "\n"));
                     }
                 }
 
@@ -189,13 +201,13 @@ export async function POST(req: NextRequest) {
                     coordinator_trace: routingResult.reasoning,
                 };
 
-                controller.enqueue(encoder.encode(JSON.stringify({ type: "result", data: finalResult }) + "\n"));
-                controller.close();
+                safeEnqueue(encoder.encode(JSON.stringify({ type: "result", data: finalResult }) + "\n"));
+                try { controller.close(); } catch (e) { }
             } catch (error: any) {
                 console.error("[STREAM ERROR]", error);
                 const event = { type: "error", message: error.message || "Unknown internal error" };
-                controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
-                controller.close();
+                safeEnqueue(encoder.encode(JSON.stringify(event) + "\n"));
+                try { controller.close(); } catch (e) { }
             }
         },
     });

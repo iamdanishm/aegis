@@ -46,6 +46,7 @@ Incident Data:
 - Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
 - Current Status: ${incident.status}
 - Description: ${incident.description_for_simulation || "N/A"}
+${incident.transcript_context ? `\n[ACTION REQUIRED]: User has provided context: "${incident.transcript_context}". Route based on this NEW context.` : ""}
 
 Determine the target agent for this incident.`;
 
@@ -115,6 +116,48 @@ function getFallbackRouting(incident: Incident): RoutingDecision {
     return { target_agent: target, confidence: 0.8, reasoning };
 }
 
+/**
+ * Parses user command directive to update internal state.
+ */
+async function parseDirective(incident: Incident): Promise<{ command_intent: string, reasoning_trace: string }> {
+    if (!process.env.GEMINI_API_KEY) {
+        return {
+            command_intent: incident.transcript_context || "Directive processed via Aegis Protocol.",
+            reasoning_trace: "System Commander directive received and authenticated. Priority re-alignment initiated. [MOCK]"
+        };
+    }
+
+    const prompt = `
+        You are the Aegis Directive Parser.
+        Extract the commander's intent from this voice context: "${incident.transcript_context}"
+        
+        Output a JSON with:
+        - command_intent: Short summary (e.g., "DEPLOY DRONE TO SECTOR 4").
+        - reasoning_trace: Brief explanation of the directive.
+    `;
+
+    try {
+        const response = await generateContentWithRetry(ai.models, {
+            model: MODELS.COORDINATOR,
+            contents: [{ text: prompt }],
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+        const text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+        const result = extractAndParseJSON(text);
+        return {
+            command_intent: result.command_intent || "Executed",
+            reasoning_trace: result.reasoning_trace || "Commander intent acknowledged."
+        };
+    } catch (e) {
+        return {
+            command_intent: "SYSTEM_UPDATE",
+            reasoning_trace: "Commander directive processed via fallback protocol."
+        };
+    }
+}
+
 // The Coordinator Agent acts as the "Traffic Cop"
 export async function coordinateIncident(incident: Incident): Promise<Incident> {
     console.log(`[COORDINATOR] ========================================`);
@@ -122,6 +165,14 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
 
     let processedIncident = { ...incident };
     let routingTrace = `[COORDINATOR] Input Type: ${incident.type}. `;
+
+    // For Dual Analysis: Handle directive parsing separately if context exists
+    let directiveResult: { command_intent: string, reasoning_trace: string } | null = null;
+    if (incident.transcript_context) {
+        directiveResult = await parseDirective(incident);
+        // Inject context into description so specialists see it
+        incident.description_for_simulation = `[USER CONTEXT]: ${incident.transcript_context}\n${incident.description_for_simulation || ""}`;
+    }
 
     try {
         // Handle COMMAND type separately (Voice of God)
@@ -140,62 +191,157 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                     ...result,
                     priority: "CRITICAL",
                     category: "COMMAND_OVERRIDE",
-                    status: "RESOLVED"
+                    status: "RESOLVED",
+                    location: incident.location || processedIncident.location // Keep existing or use provided
                 };
                 routingTrace += `Intent Parsed (MOCK): ${result.command_intent}`;
             } else {
-                // Voice of God Logic with AI
+                // Voice of God Logic: Check if we have pre-transcribed text or need to process audio
                 let contextString = "Global Override";
                 if (incident.description_for_simulation) {
                     contextString = `Context: ${incident.description_for_simulation}`;
                 }
 
-                const commandPrompt = `
-                    You are the AI Coordinator receiving a verbal override command from the System Commander (Voice of God).
-                    
-                    CURRENT CONTEXT: ${contextString}
-                    
-                    TASKS:
-                    1. Transcribe the audio command accurately.
-                    2. Extract the CORE INTENT (e.g., "Reroute", "Abort", "Prioritize", "Evacuate").
-                    3. Extract specific LOCATIONS or ASSETS mentioned (e.g., "Sector 4", "Dam", "All Units").
-                    4. Output a JSON with:
-                       - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
-                       - reasoning_trace: Explanation of the command.
-                       - priority: "CRITICAL".
-                 `;
+                // INJECT USER CONTEXT FROM MERGE
+                if (incident.transcript_context) {
+                    // This is the magic line that makes the AI aware of the merge
+                    contextString += `\n\n[USER VOICE INJECTION]: "${incident.transcript_context}"\n(You must incorporate this user directive into your analysis).`;
+                    console.log("[COORDINATOR] Injecting User Context into Prompt:", incident.transcript_context);
+                }
 
-                // ... existing code ...
+                let commandText = "";
+                let isAudioInput = incident.raw_input.startsWith("data:audio");
 
-                const response = await generateContentWithRetry(ai.models, {
-                    model: MODELS.COORDINATOR,
-                    contents: [
-                        { text: commandPrompt },
-                        { inlineData: { mimeType: "audio/webm", data: incident.raw_input.split(',')[1] } }
-                    ],
-                    config: {
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: Type.OBJECT,
-                            properties: {
-                                command_intent: { type: Type.STRING },
-                                reasoning_trace: { type: Type.STRING },
+                if (!isAudioInput || incident.command_intent) {
+                    // Pre-transcribed text or passed intent
+                    commandText = incident.command_intent || incident.raw_input;
+                    console.log(`[COORDINATOR] Processing Text Command: "${commandText}"`);
+                }
+
+                // If we have text, we use a text-only prompt
+                if (commandText) {
+                    const textCommandPrompt = `
+                        You are the AI Coordinator receiving a text-based override command from the System Commander.
+                        
+                        CURRENT CONTEXT: ${contextString}
+                        COMMAND: "${commandText}"
+                        
+                        TASKS:
+                        1. **CRITICAL: ACTIONABILITY CHECK**:
+                           - If the command is vague (e.g., just a place name like "United States", "New York") BUT seems to be setting context, output:
+                             - command_intent: "INFO_UPDATE: [Human provided context]"
+                           - If it is completely nonsense, output:
+                             - command_intent: "INVALID_COMMAND"
+                             - reasoning_trace: "Command rejected: Too vague or non-actionable."
+                           - ONLY proceed if there is a clear imperative OR a clear information update.
+
+                        2. Analyze the command intent (e.g., "Reroute", "Abort", "Prioritize", "Evacuate", "Update Context").
+                        3. Extract specific LOCATIONS or ASSETS mentioned. If a new address is mentioned, you MUST provide it in the 'location' field.
+                        4. Output a JSON with:
+                           - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
+                           - reasoning_trace: Explanation of the command processing.
+                           - priority: "CRITICAL" (Standard) or specific level requested.
+                           - location: { lat: number, lng: number, address: string } (ONLY if new location is identified).
+                    `;
+
+                    const response = await generateContentWithRetry(ai.models, {
+                        model: MODELS.COORDINATOR,
+                        contents: [{ text: textCommandPrompt }],
+                        config: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    command_intent: { type: Type.STRING },
+                                    reasoning_trace: { type: Type.STRING },
+                                    priority: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+                                    location: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            lat: { type: Type.NUMBER },
+                                            lng: { type: Type.NUMBER },
+                                            address: { type: Type.STRING }
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                });
+                    });
 
-                const text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
-                const result = extractAndParseJSON(text);
-                processedIncident = {
-                    ...processedIncident,
-                    ...result,
-                    priority: "CRITICAL",
-                    category: "COMMAND_OVERRIDE",
-                    status: "RESOLVED"
-                };
+                    const text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                    const result = extractAndParseJSON(text);
+                    processedIncident = {
+                        ...processedIncident,
+                        ...result,
+                        priority: "CRITICAL",
+                        category: "COMMAND_OVERRIDE",
+                        status: "RESOLVED"
+                    };
+                    routingTrace += `Intent Parsed: ${result.command_intent}`;
 
-                routingTrace += `Intent Parsed: ${result.command_intent}`;
+                } else {
+                    // Original Audio Processing Path
+                    const commandPrompt = `
+                        You are the AI Coordinator receiving a verbal override command from the System Commander (Voice of God).
+                        
+                        CURRENT CONTEXT: ${contextString}
+                        
+                        TASKS:
+                        1. Transcribe the audio command accurately.
+                        2. **CRITICAL: ACTIONABILITY CHECK**:
+                           - If the command is vague (e.g. "United States", "Hello", "Testing") BUT seems to be setting context (e.g. "The city is New York"), output:
+                             - command_intent: "INFO_UPDATE: [Human provided context]"
+                           - If it is completely nonsense or greeting with no info, output:
+                             - command_intent: "INVALID_COMMAND"
+                             - reasoning_trace: "Command rejected: Audio input was vague or non-actionable."
+                        3. Extract the CORE INTENT (e.g., "Reroute", "Abort", "Prioritize", "Evacuate", "Update Context").
+                        4. Extract specific LOCATIONS or ASSETS mentioned. If a new address is mentioned, you MUST provide it in the 'location' field.
+                        5. Output a JSON with:
+                           - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
+                           - reasoning_trace: Explanation of the command.
+                           - priority: "CRITICAL" (Standard) or specific level requested.
+                           - location: { lat: number, lng: number, address: string } (ONLY if new location is identified).
+                     `;
+
+                    const response = await generateContentWithRetry(ai.models, {
+                        model: MODELS.COORDINATOR,
+                        contents: [
+                            { text: commandPrompt },
+                            { inlineData: { mimeType: "audio/webm", data: incident.raw_input.split(',')[1] } }
+                        ],
+                        config: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    command_intent: { type: Type.STRING },
+                                    reasoning_trace: { type: Type.STRING },
+                                    priority: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+                                    location: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            lat: { type: Type.NUMBER },
+                                            lng: { type: Type.NUMBER },
+                                            address: { type: Type.STRING }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    const text = (typeof response.text === 'function') ? response.text() : (response.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+                    const result = extractAndParseJSON(text);
+                    processedIncident = {
+                        ...processedIncident,
+                        ...result,
+                        priority: "CRITICAL",
+                        category: "COMMAND_OVERRIDE",
+                        status: "RESOLVED"
+                    };
+
+                    routingTrace += `Intent Parsed: ${result.command_intent}`;
+                }
             }
         } else {
             // AI-DRIVEN ROUTING (Primary logic)
@@ -228,6 +374,12 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                 routingTrace += "Routing directly to Logistics Agent... ";
                 const logisticsResult = await import("./logistics").then(m => m.manageLogistics(incident));
                 processedIncident = { ...processedIncident, ...logisticsResult };
+            }
+
+            // MERGE DIRECTIVE TRACE IF PRESENT
+            if (directiveResult) {
+                processedIncident.command_intent = directiveResult.command_intent;
+                processedIncident.reasoning_trace = `${processedIncident.reasoning_trace}\n\n[COMMAND OVERRIDE]: ${directiveResult.command_intent}\n${directiveResult.reasoning_trace}`.trim();
             }
         }
 

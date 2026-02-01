@@ -43,6 +43,13 @@ interface SimulationState {
     activeModel: string | null;
     setActiveModel: (model: string | null) => void;
 
+    // Voice Processing State
+    isVoiceProcessing: boolean;
+    setIsVoiceProcessing: (isProcessing: boolean) => void;
+
+    activeAbortController: AbortController | null;
+    setActiveAbortController: (controller: AbortController | null) => void;
+
     // Reset function to clear state
     resetSimulation: () => void;
 }
@@ -65,6 +72,8 @@ const initialState = {
     agentAuditLogs: [] as AgentAuditLog[],
     activeAgent: null,
     activeModel: null,
+    isVoiceProcessing: false,
+    activeAbortController: null,
 };
 
 export const useSimulationStore = create<SimulationState>()(
@@ -118,6 +127,10 @@ export const useSimulationStore = create<SimulationState>()(
 
             setActiveAgent: (activeAgent) => set({ activeAgent }),
             setActiveModel: (activeModel) => set({ activeModel }),
+            setIsVoiceProcessing: (isVoiceProcessing) => set({ isVoiceProcessing }),
+
+            activeAbortController: null,
+            setActiveAbortController: (controller) => set({ activeAbortController: controller }),
 
             resetSimulation: () => set(initialState),
         }),

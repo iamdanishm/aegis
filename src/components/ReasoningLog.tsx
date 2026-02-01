@@ -4,8 +4,65 @@ import React, { useEffect, useState, useRef } from "react";
 import { useSimulationStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { MODELS } from "@/lib/constants";
+import { Mic } from "lucide-react";
 
-// Typewriter effect component
+// Custom Markdown-lite formatter
+function FormattedReasoningDisplay({ text }: { text: string }) {
+    if (!text) return null;
+
+    // View Layer Clean: Remove unwanted artifacts
+    const cleanText = text
+        .replace(/Show Less/gi, "") // Cleaning user reported artifact
+        .trim();
+
+    return (
+        <div className="space-y-2">
+            {cleanText.split('\n').map((line, i) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={i} className="h-1" />; // Spacer
+
+                // Separator
+                if (trimmed === '---') {
+                    return <hr key={i} className="border-zinc-800 my-2" />;
+                }
+
+                // Headers
+                // Warnings
+                if (trimmed.startsWith('⚠️') || trimmed.includes('[STREAM ERROR]')) {
+                    return <div key={i} className="text-amber-400 bg-amber-950/30 p-2 rounded border border-amber-900/50 text-[10px] font-bold shadow-sm">{trimmed}</div>;
+                }
+
+                // Explicit Header (###) OR Implicit Header (Short first line)
+                const isExplicitHeader = trimmed.startsWith('#');
+                const isImplicitHeader = (i === 0 && trimmed.length < 50 && !trimmed.includes(':') && !trimmed.endsWith('.')) || (trimmed.includes('Analysis') && !trimmed.includes(':') && trimmed.length < 50);
+
+                if (isExplicitHeader || isImplicitHeader) {
+                    const cleanHeader = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
+                    return <h3 key={i} className="text-cyan-400 font-bold uppercase text-[10px] tracking-widest mt-3 mb-2 border-b border-cyan-500/20 pb-1">{cleanHeader}</h3>;
+                }
+
+                // List Items (Numeric or Bullet)
+                const isList = /^\d+\./.test(trimmed) || trimmed.startsWith('- ') || trimmed.startsWith('* ');
+
+                // Bold Parsing (Robust) - Handles **text**
+                const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+
+                return (
+                    <div key={i} className={cn("text-[10px] leading-relaxed text-zinc-300/90 py-0.5", isList && "pl-3 border-l-2 border-zinc-800 ml-1 mt-1 bg-zinc-900/20 rounded-r")}>
+                        {parts.map((part, j) => {
+                            if (part.startsWith('**') && part.endsWith('**')) {
+                                const content = part.slice(2, -2);
+                                return <span key={j} className="text-cyan-200 font-bold">{content}</span>;
+                            }
+                            return <span key={j}>{part}</span>;
+                        })}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) {
     const [displayText, setDisplayText] = useState("");
     const [isComplete, setIsComplete] = useState(false);
@@ -58,7 +115,7 @@ function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) 
     }, [text, speed]);
 
     return (
-        <span>
+        <span className="whitespace-pre-wrap">
             {displayText}
             {!isComplete && <span className="animate-pulse">▌</span>}
         </span>
@@ -66,7 +123,7 @@ function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) 
 }
 
 export function ReasoningLog({ className }: { className?: string }) {
-    const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess, activeAgent, activeModel } = useSimulationStore();
+    const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess, activeAgent, activeModel, isVoiceProcessing } = useSimulationStore();
     const scrollRef = useRef<HTMLDivElement>(null);
     const thoughtsRef = useRef<HTMLDivElement>(null);
     const [displayLogs, setDisplayLogs] = useState<string[]>([]);
@@ -83,7 +140,7 @@ export function ReasoningLog({ className }: { className?: string }) {
     const latestTriaged = incidents
         .slice()
         .reverse()
-        .find(i => i.reasoning_trace && i.status === "TRIAGED");
+        .find(i => i.reasoning_trace && (i.status === "TRIAGED" || i.status === "RESOLVED" || i.status === "ANALYZING"));
 
     // Check if there's an incident currently being analyzed, or fallback to the first pending one in queue
     const pendingIncident = incidents.find(i => i.status === "ANALYZING") || incidents.find(i => i.status === "PENDING");
@@ -154,16 +211,33 @@ export function ReasoningLog({ className }: { className?: string }) {
                         &gt; Compiling chain of custody...
                     </div>
                 </div>
-            ) : (latestTriaged || pendingIncident) && !isSimulationComplete ? (
+            ) : ((latestTriaged || pendingIncident) && !isSimulationComplete) || isVoiceProcessing ? (
                 <div className="mt-auto border-t border-zinc-800 pt-3">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                            {/* Unified Pulse Indicators */}
+                            {isVoiceProcessing ? (
+                                <>
+                                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse delay-75" />
+                                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse delay-150" />
+                                </>
+                            ) : (
+                                <>
+                                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                    <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
+                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                                </>
+                            )}
                         </div>
-                        <h4 className="text-zinc-300 font-bold uppercase text-[10px] tracking-widest">
-                            {pendingIncident ? (activeAgent || "Coordinator Active") : "AI Reasoning Trace"}
+                        <h4 className={cn(
+                            "font-bold uppercase text-[10px] tracking-widest",
+                            isVoiceProcessing ? "text-amber-400 animate-pulse" : "text-zinc-300"
+                        )}>
+                            {isVoiceProcessing
+                                ? "VOICE INTERPRETER ACTIVE"
+                                : (pendingIncident ? (activeAgent || "Coordinator Active") : "AI Reasoning Trace")
+                            }
                         </h4>
                         <div className="ml-auto flex items-center gap-2">
                             <span className="text-[9px] text-zinc-500 font-mono">
@@ -177,11 +251,38 @@ export function ReasoningLog({ className }: { className?: string }) {
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-zinc-900/80 to-zinc-950 p-3 rounded-lg border border-zinc-800 relative overflow-hidden">
-                        {/* Decorative corner */}
-                        <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-cyan-500/10 to-transparent" />
+                    <div className={cn(
+                        "p-3 rounded-lg border relative overflow-hidden transition-colors duration-300",
+                        isVoiceProcessing
+                            ? "bg-amber-950/10 border-amber-500/30"
+                            : "bg-gradient-to-br from-zinc-900/80 to-zinc-950 border-zinc-800"
+                    )}>
 
-                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed h-[250px] overflow-y-auto space-y-3 custom-scrollbar">
+                        {/* DECORATIVE BACKGROUND FOR VOICE */}
+                        {isVoiceProcessing && (
+                            <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                                <div className="flex gap-0.5 h-8 items-end">
+                                    {[...Array(5)].map((_, i) => (
+                                        <div key={i} className="w-1 bg-amber-500 rounded-t animate-music-bar" style={{ animationDelay: `${i * 0.1}s` }} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* USER COMMAND HEADER */}
+                        {(pendingIncident?.is_override || pendingIncident?.transcript_context) && (
+                            <div className="mb-3 pb-2 border-b border-white/5">
+                                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                    <span className="w-1 h-1 rounded-full bg-cyan-400 animate-pulse" />
+                                    Live User Command
+                                </div>
+                                <div className="text-cyan-400 font-mono text-[11px] leading-relaxed italic border-l-2 border-cyan-500/50 pl-2">
+                                    "{pendingIncident.transcript_context || pendingIncident.command_intent || pendingIncident.raw_input}"
+                                </div>
+                            </div>
+                        )}
+
+                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed min-h-[150px] max-h-[250px] overflow-y-auto space-y-3 custom-scrollbar">
                             {pendingIncident && (
                                 <div className="animate-pulse flex flex-col gap-2">
                                     {rawThinkingProcess ? (
@@ -201,7 +302,8 @@ export function ReasoningLog({ className }: { className?: string }) {
                                 </div>
                             )}
 
-                            {!pendingIncident && latestTriaged && (
+                            {/* Show the latest finalized reasoning even if analyzing a new command for same event */}
+                            {(latestTriaged && (!pendingIncident || isVoiceProcessing || pendingIncident.id === latestTriaged.id)) && (
                                 <>
                                     {latestTriaged.coordinator_trace && (
                                         <div className="border-l-2 border-amber-500/30 pl-2 py-1 bg-amber-500/5 rounded-r">
@@ -235,8 +337,31 @@ export function ReasoningLog({ className }: { className?: string }) {
                                             </div>
                                         </div>
                                     )}
-                                    <div>
-                                        <TypewriterText text={latestTriaged.reasoning_trace || ""} speed={15} />
+                                    <div className="space-y-4">
+                                        {/* 1. Tactical Analysis (Primary) */}
+                                        <div>
+                                            {(() => {
+                                                const parts = (latestTriaged.reasoning_trace || "").split('[COMMAND OVERRIDE]:');
+                                                const technicalTrace = parts[0].trim();
+                                                return <FormattedReasoningDisplay text={technicalTrace || "Initial signal analysis was preempted by high-priority System Commander override."} />;
+                                            })()}
+                                        </div>
+
+                                        {/* 2. Override Analysis (Secondary) */}
+                                        {(latestTriaged.reasoning_trace || "").includes('[COMMAND OVERRIDE]:') && (
+                                            <div className="mt-4 pt-3 border-t border-amber-500/20 bg-amber-950/5 p-3 rounded-lg border border-amber-500/10">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Mic className="w-3.5 h-3.5 text-amber-500" />
+                                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Commander Override Analysis</span>
+                                                </div>
+                                                <div className="text-[11px] leading-relaxed text-zinc-300 font-mono italic">
+                                                    {(() => {
+                                                        const parts = (latestTriaged.reasoning_trace || "").split('[COMMAND OVERRIDE]:');
+                                                        return parts[1]?.trim() || "Directive successfully merged.";
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}

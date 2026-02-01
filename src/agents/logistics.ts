@@ -81,12 +81,26 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     // If this is a COMMAND incident, the goal is to "execute" the logistics update.
     let instruction = "";
     if (incident.type === "COMMAND") {
+        if (incident.command_intent === "INVALID_COMMAND" || (incident.reasoning_trace || "").includes("INVALID_COMMAND")) {
+            console.log("[LOGISTICS] Command marked INVALID. Requesting NO_ACTION.");
+            return {
+                assigned_assets: ["NO_ACTION"],
+                reasoning_trace: "Command rejected by Coordinator as vague/invalid. No assets deployed.",
+                status: "RESOLVED"
+            };
+        }
+
         instruction = `
         CRITICAL OVERRIDE: The Commander has issued a direct verbal order: "${incident.command_intent}".
         TASK:
         1. Acknowledge the order.
         2. Identify what assets need to be moved or rerouted.
-        3. Output "acknowledged_action" instead of just recommending an asset.
+        3. **STRICT ASSET ALLOW-LIST**:
+           - You may ONLY deploy items from this list:
+             ["Rescue Boat", "Helicopter", "Drone Swarm", "Patrol Car", "Medical Unit", "Fire Truck", "Ambulance", "Hazmat Team", "SYSTEM_UPDATE"].
+           - If the user did not specify one, pick the most logical one or "SYSTEM_UPDATE".
+           - DO NOT invent assets like "42 Oak Street" or sentences.
+        4. If it's a general update, output "SYSTEM_UPDATE".
         `;
     } else {
         instruction = `
@@ -122,6 +136,8 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     OUTPUT ADHERENCE:
     You must output a strictly valid JSON object.
     - recommended_asset: The best vehicle for the job (or "ALL UNITS" if command implies).
+      * MUST be short noun phrase (e.g. "Rescue Boat").
+      * NO SENTENCES. NO LOCATIONS.
     - required_asset_type: "AIR" | "MARINE" | "GROUND" | "General".
     - verification_status: "VERIFIED" | "UNVERIFIED" | "HISTORICAL".
     - priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" (Use this to downgrade if historical).
@@ -138,6 +154,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     Location: ${incident.location.address || "Unknown (Lat: " + incident.location.lat + ", Lng: " + incident.location.lng + ")"}
     Category: ${incident.category || "General Emergency"}
     Priority: ${incident.priority || "UNKNOWN"}
+    Description/Context: ${incident.description_for_simulation || "N/A"}
     
     SPECIAL INSTRUCTIONS:
     ${instruction}
