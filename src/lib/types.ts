@@ -15,6 +15,7 @@ export interface Incident {
     priority?: Priority;
     category?: string;
     reasoning_trace?: string;
+    display_reasoning?: string[]; // 3 concise HUD-ready bullet points
     coordinator_trace?: string; // Routing decisions
     thought_signature?: string; // Crypto-audit
     structural_damage?: string; // Surveillance

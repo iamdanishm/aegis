@@ -136,11 +136,20 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     - CRITICAL is reserved EXCLUSIVELY for real-time, verified life-threatening emergencies with corroborating evidence.
     - If you are UNCERTAIN, default to MEDIUM, never HIGH or CRITICAL.
 
+    8. DISPLAY REASONING (HUD BULLETS):
+       - Generate exactly 3 short, telegraphic bullet points for tactical HUD display.
+       - Each bullet: MAX 10 words. Military-style. No filler words.
+       - Format: Action/Status focused. Example:
+         • "Elderly trapped basement level"
+         • "Water at electrical outlet height"
+         • "Electrocution risk - IMMEDIATE"
+    
     RESPONSE FORMAT (JSON):
     {
        "priority": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
        "category": "String",
        "reasoning_trace": "String (Step-by-step)",
+       "display_reasoning": ["String", "String", "String"],
        "people_safety": "String",
        "location": { "lat": number, "lng": number, "address": "String" },
        "location_source": "SPOKEN" | "VISUAL_LANDMARK" | "SIGNAL_TRIANGULATION" | "MANUAL_TRACE_REQUIRED" | "GPS_DEFAULT",
@@ -225,6 +234,11 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
                         priority: { type: Type.STRING },
                         category: { type: Type.STRING },
                         reasoning_trace: { type: Type.STRING },
+                        display_reasoning: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                            description: "3 short telegraphic bullet points for HUD. Max 10 words each."
+                        },
                         detected_language: { type: Type.STRING },
                         extracted_address: { type: Type.STRING },
                         extracted_lat: { type: Type.NUMBER },
@@ -242,7 +256,7 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
                         location_source: { type: Type.STRING, enum: ["SPOKEN", "VISUAL_LANDMARK", "SIGNAL_TRIANGULATION", "MANUAL_TRACE_REQUIRED", "UNKNOWN"] },
                         manual_trace_required: { type: Type.BOOLEAN }
                     },
-                    required: ["priority", "category", "reasoning_trace", "location_source"],
+                    required: ["priority", "category", "reasoning_trace", "display_reasoning", "location_source"],
                 },
             },
         });
@@ -310,6 +324,7 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
             priority: result.priority,
             category: result.category,
             reasoning_trace: result.reasoning_trace, // The concise summary from JSON
+            display_reasoning: result.display_reasoning || [], // HUD-ready bullet points
             raw_thoughts: result.raw_thoughts,       // The deep thinking process
             thought_signature: signature,
             detected_language: result.detected_language,

@@ -50,6 +50,12 @@ interface SimulationState {
     activeAbortController: AbortController | null;
     setActiveAbortController: (controller: AbortController | null) => void;
 
+    // Spotlight Protocol: Parallel processing state
+    spotlightId: string | null;
+    setSpotlightId: (id: string | null) => void;
+    processingBatch: string[];
+    setProcessingBatch: (ids: string[]) => void;
+
     // Reset function to clear state
     resetSimulation: () => void;
 }
@@ -74,6 +80,8 @@ const initialState = {
     activeModel: null,
     isVoiceProcessing: false,
     activeAbortController: null,
+    spotlightId: null,
+    processingBatch: [] as string[],
 };
 
 export const useSimulationStore = create<SimulationState>()(
@@ -131,6 +139,11 @@ export const useSimulationStore = create<SimulationState>()(
 
             activeAbortController: null,
             setActiveAbortController: (controller) => set({ activeAbortController: controller }),
+
+            spotlightId: null,
+            setSpotlightId: (spotlightId) => set({ spotlightId }),
+            processingBatch: [],
+            setProcessingBatch: (processingBatch) => set({ processingBatch }),
 
             resetSimulation: () => set(initialState),
         }),

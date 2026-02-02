@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useSimulationStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { MODELS } from "@/lib/constants";
-import { Mic } from "lucide-react";
+import { Mic, Target, Loader2, CheckCircle } from "lucide-react";
 
 // Custom Markdown-lite formatter
 function FormattedReasoningDisplay({ text }: { text: string }) {
@@ -123,7 +123,18 @@ function TypewriterText({ text, speed = 20 }: { text: string; speed?: number }) 
 }
 
 export function ReasoningLog({ className }: { className?: string }) {
-    const { logs, incidents, isGeneratingReport, isSimulationComplete, rawThinkingProcess, activeAgent, activeModel, isVoiceProcessing } = useSimulationStore();
+    const {
+        logs,
+        incidents,
+        isGeneratingReport,
+        isSimulationComplete,
+        rawThinkingProcess,
+        activeAgent,
+        activeModel,
+        isVoiceProcessing,
+        spotlightId,
+        processingBatch
+    } = useSimulationStore();
     const scrollRef = useRef<HTMLDivElement>(null);
     const thoughtsRef = useRef<HTMLDivElement>(null);
     const [displayLogs, setDisplayLogs] = useState<string[]>([]);
@@ -151,6 +162,15 @@ export function ReasoningLog({ className }: { className?: string }) {
             thoughtsRef.current.scrollTop = thoughtsRef.current.scrollHeight;
         }
     }, [rawThinkingProcess, latestTriaged, pendingIncident, displayLogs]);
+
+    // Get spotlight incident and background incidents from batch
+    const heroIncident = spotlightId ? incidents.find(i => i.id === spotlightId) : null;
+    // Show only background incidents (exclude Hero since it's shown in AI Reasoning)
+    const backgroundIncidents = processingBatch
+        .filter(id => id !== spotlightId)
+        .map(id => incidents.find(i => i.id === id))
+        .filter(Boolean);
+    const isParallelProcessing = processingBatch.length > 1;
 
     return (
         <div className={cn("flex flex-col gap-2 p-4 bg-zinc-950 border border-zinc-800 rounded-lg h-full font-mono text-xs", className)}>
@@ -184,6 +204,44 @@ export function ReasoningLog({ className }: { className?: string }) {
                     ))
                 )}
             </div>
+
+            {/* ============================================================ */}
+            {/* PARALLEL PROCESSING: Background Tasks (shown above AI Reasoning) */}
+            {/* ============================================================ */}
+            {isParallelProcessing && backgroundIncidents.length > 0 && (
+                <div className="border-t border-zinc-700/50 pt-3 mt-2">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Target className="w-3 h-3 text-cyan-400 animate-pulse" />
+                        <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest">
+                            Parallel Analysis
+                        </span>
+                        <span className="ml-auto text-[9px] text-zinc-600 bg-zinc-900 px-2 py-0.5 rounded">
+                            {processingBatch.length} signals
+                        </span>
+                    </div>
+                    <div className="space-y-1">
+                        {backgroundIncidents.map((incident) => incident && (
+                            <div key={incident.id} className="flex items-center gap-2 bg-zinc-900/50 rounded px-2 py-1.5 border border-zinc-800">
+                                {incident.status === "ANALYZING" ? (
+                                    <Loader2 className="w-3 h-3 text-yellow-500 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="w-3 h-3 text-emerald-500" />
+                                )}
+                                <span className="text-[9px] text-zinc-400 font-mono flex-1">
+                                    {incident.id}
+                                </span>
+                                <span className={cn(
+                                    "text-[8px] px-1 py-0.5 rounded",
+                                    incident.status === "ANALYZING" && "bg-yellow-500/20 text-yellow-400",
+                                    incident.status === "TRIAGED" && "bg-emerald-500/20 text-emerald-400"
+                                )}>
+                                    {incident.status}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* AI Reasoning Trace - "Glass Box" Visualization */}
             {isGeneratingReport ? (
@@ -282,9 +340,10 @@ export function ReasoningLog({ className }: { className?: string }) {
                             </div>
                         )}
 
-                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed min-h-[150px] max-h-[250px] overflow-y-auto space-y-3 custom-scrollbar">
+                        <div ref={thoughtsRef} className="text-cyan-400/90 text-[11px] leading-relaxed h-[200px] overflow-y-auto space-y-3 custom-scrollbar">
                             {pendingIncident && (
                                 <div className="animate-pulse flex flex-col gap-2">
+                                    {/* Show rawThinkingProcess for Hero (whether single or parallel) */}
                                     {rawThinkingProcess ? (
                                         <div className="font-mono text-[10px] text-cyan-300 whitespace-pre-wrap">
                                             {rawThinkingProcess}
