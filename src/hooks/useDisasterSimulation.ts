@@ -121,8 +121,10 @@ export function useDisasterSimulation() {
                 // Infer type if missing (for scoring purposes only)
                 const isVideo = incident.type === "VIDEO" || input.endsWith(".mp4") || input.endsWith(".mov") || input.endsWith(".avi");
                 const isAudio = incident.type === "AUDIO" || input.endsWith(".mp3") || input.endsWith(".wav");
+                const isCommand = incident.type === "COMMAND";
 
                 // Type-based priority
+                if (isCommand) score += 100; // Voice of God Override (Instant Hero)
                 if (isVideo) score += 20; // Visual confirmation = higher priority
                 if (isAudio) score += 10;
 
