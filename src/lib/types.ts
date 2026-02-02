@@ -2,7 +2,7 @@ export type Priority = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
 export interface Incident {
     id: string;
-    type: "AUDIO" | "VIDEO" | "TEXT" | "COMMAND" | "IMAGE";
+    type?: "AUDIO" | "VIDEO" | "TEXT" | "COMMAND" | "IMAGE";
     raw_input: string; // URL or Base64 or Text
     timestamp: string;
     location: {

@@ -2,7 +2,6 @@
     {
         "id": "EVT-AUDIO-001",
         "trigger_time_offset": 1,
-        "type": "AUDIO",
         "raw_input": "/Simulation Data/Audios/audio1.mp3",
         "location": {
             "lat": 40.7128,
@@ -14,7 +13,6 @@
     {
         "id": "EVT-VIDEO-001",
         "trigger_time_offset": 2,
-        "type": "VIDEO",
         "raw_input": "/Simulation Data/Videos/v1.mp4",
         "location": {
             "lat": 37.57074435338501,
@@ -26,7 +24,6 @@
     {
         "id": "EVT-VIDEO-002",
         "trigger_time_offset": 2,
-        "type": "VIDEO",
         "raw_input": "/Simulation Data/Videos/v2.mov",
         "location": {
             "lat": 19.0760,
@@ -38,7 +35,6 @@
     {
         "id": "EVT-VIDEO-003",
         "trigger_time_offset": 2,
-        "type": "VIDEO",
         "raw_input": "/Simulation Data/Videos/v3.mov",
         "location": {
             "lat": 37.609481,
@@ -50,7 +46,6 @@
     {
         "id": "EVT-AUDIO-002",
         "trigger_time_offset": 2,
-        "type": "AUDIO",
         "raw_input": "/Simulation Data/Audios/audio2.mp3",
         "location": {
             "lat": 51.5074,

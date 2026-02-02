@@ -116,10 +116,15 @@ export function useDisasterSimulation() {
             const getPriorityScore = (incident: typeof batch[0]): number => {
                 let score = 0;
                 const desc = (incident.description_for_simulation || incident.raw_input || "").toLowerCase();
+                const input = (incident.raw_input || "").toLowerCase();
+
+                // Infer type if missing (for scoring purposes only)
+                const isVideo = incident.type === "VIDEO" || input.endsWith(".mp4") || input.endsWith(".mov") || input.endsWith(".avi");
+                const isAudio = incident.type === "AUDIO" || input.endsWith(".mp3") || input.endsWith(".wav");
 
                 // Type-based priority
-                if (incident.type === "VIDEO") score += 20; // Visual confirmation = higher priority
-                if (incident.type === "AUDIO") score += 10;
+                if (isVideo) score += 20; // Visual confirmation = higher priority
+                if (isAudio) score += 10;
 
                 // Keyword-based priority
                 if (desc.includes("trapped")) score += 30;
@@ -169,8 +174,11 @@ export function useDisasterSimulation() {
                     // MOCK MODE: Parallel processing simulation
                     // ============================================================
                     const processMockIncident = async (incident: typeof batch[0], isHero: boolean) => {
-                        const targetAgent = incident.type === "VIDEO" ? "Surveillance Agent" : "Triage Agent";
-                        const targetModel = incident.type === "VIDEO" ? MODELS.SURVEILLANCE : MODELS.TRIAGE;
+                        const input = (incident.raw_input || "").toLowerCase();
+                        const isVideo = incident.type === "VIDEO" || input.endsWith(".mp4") || input.endsWith(".mov") || input.endsWith(".avi");
+
+                        const targetAgent = isVideo ? "Surveillance Agent" : "Triage Agent";
+                        const targetModel = isVideo ? MODELS.SURVEILLANCE : MODELS.TRIAGE;
 
                         if (isHero) {
                             useSimulationStore.getState().setActiveAgent(targetAgent);

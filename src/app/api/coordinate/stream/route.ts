@@ -46,16 +46,24 @@ export async function POST(req: NextRequest) {
     Analyze the incoming incident data and route it to the correct specialized agent.
     
     Available agents:
-    - TRIAGE: Handles text and audio distress calls.
-    - SURVEILLANCE: Handles video feeds and CCTV footage.
+    - TRIAGE: Handles text and audio distress calls (e.g., .mp3, .wav, transcripts).
+    - SURVEILLANCE: Handles video feeds and CCTV footage (e.g., .mp4, .mov, images).
     - LOGISTICS: Handles resource requests and asset routing.
+    
+    ROUTING RULES:
+    1. If 'Type' is provided, respect it.
+    2. If 'Type' is UNKNOWN or missing, ANALYZE the 'Raw Input' file extension:
+       - Audio files (.mp3, .wav) -> TRIAGE
+       - Video files (.mp4, .mov, .avi) -> SURVEILLANCE
+       - Text -> TRIAGE
+    3. Resource requests -> LOGISTICS
     
     Return ONLY a JSON object with your decision.`;
 
     const prompt = `
     Incident Data:
     - ID: ${incident.id}
-    - Type: ${incident.type}
+    - Type: ${incident.type || "UNKNOWN (Infer from Input)"}
     - Raw Input: ${incident.raw_input.substring(0, 200)}
     - Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
     - Status: ${incident.status}
@@ -89,7 +97,7 @@ export async function POST(req: NextRequest) {
                 const connectEvent = { type: "thought", content: " [SYSTEM] Connecting to Aegis Satellite Network..." };
                 safeEnqueue(encoder.encode(JSON.stringify(connectEvent) + "\n"));
 
-                console.log(`[COORDINATOR] Starting AI Routing for ${incident.id} (${incident.type})...`);
+                console.log(`[COORDINATOR] Starting AI Routing for ${incident.id} (${incident.type || "UNKNOWN"})...`);
 
                 const result = await generateContentStreamWithRetry(ai.models, {
                     model: MODELS.COORDINATOR,
@@ -142,11 +150,22 @@ export async function POST(req: NextRequest) {
 
                 if (!routingResult) {
                     console.log(`[COORDINATOR] Using deterministic fallback for ${incident.id}`);
-                    const fallbackTarget = incident.type === "VIDEO" ? "SURVEILLANCE" : "TRIAGE";
+
+                    // Fallback inference logic
+                    const inputLower = (incident.raw_input || "").toLowerCase();
+                    let fallbackTarget = "TRIAGE";
+                    if (inputLower.endsWith(".mov") || inputLower.endsWith(".mp4") || inputLower.endsWith(".avi")) {
+                        fallbackTarget = "SURVEILLANCE";
+                    } else if (inputLower.endsWith(".mp3") || inputLower.endsWith(".wav")) {
+                        fallbackTarget = "TRIAGE";
+                    } else if (incident.type === "VIDEO") {
+                        fallbackTarget = "SURVEILLANCE";
+                    }
+
                     routingResult = {
                         target_agent: fallbackTarget,
                         confidence: 0.5,
-                        reasoning: "AI routing inconclusive. Engaging standard fallback protocol."
+                        reasoning: "AI routing inconclusive. Automatically inferring agent from file type."
                     };
                     const debugEvent = { type: "thought", content: `\n[SYSTEM] AI Routing inconclusive. Engaging Fallback Protocol: ${fallbackTarget}...\n` };
                     safeEnqueue(encoder.encode(JSON.stringify(debugEvent) + "\n"));

@@ -30,18 +30,18 @@ Available agents:
 - LOGISTICS: Handles resource requests and asset routing. Deploys vehicles, checks road conditions.
 
 Rules:
-1. Audio inputs -> TRIAGE (audio specialist)
-2. Video inputs -> SURVEILLANCE (vision specialist)
-3. Text inputs -> TRIAGE (text analysis)
-4. Resource/asset requests -> LOGISTICS
-5. Command overrides are processed separately, not routed.
-
+1. If Type is provided, respect it.
+2. If Type is missing/unknown, analyze Raw Input file extension:
+   - Audio (.mp3, .wav) -> TRIAGE
+   - Video (.mp4, .mov, .avi) -> SURVEILLANCE
+   - Text -> TRIAGE
+3. Resource requests -> LOGISTICS
 Return ONLY a JSON object with your decision.`;
 
     const prompt = `
 Incident Data:
 - ID: ${incident.id}
-- Type: ${incident.type}
+- Type: ${incident.type || "UNKNOWN (Infer from Input)"}
 - Raw Input: ${incident.raw_input.substring(0, 200)}${incident.raw_input.length > 200 ? "..." : ""}
 - Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
 - Current Status: ${incident.status}
@@ -102,12 +102,16 @@ function getFallbackRouting(incident: Incident): RoutingDecision {
     let target: RoutingDecision["target_agent"] = "TRIAGE";
     let reasoning = "";
 
-    if (incident.type === "VIDEO") {
+    const input = (incident.raw_input || "").toLowerCase();
+    const isVideo = incident.type === "VIDEO" || input.endsWith(".mp4") || input.endsWith(".mov") || input.endsWith(".avi");
+    const isAudio = incident.type === "AUDIO" || input.endsWith(".mp3") || input.endsWith(".wav");
+
+    if (isVideo) {
         target = "SURVEILLANCE";
-        reasoning = "Fallback: Video input routed to Surveillance Agent";
-    } else if (incident.type === "AUDIO" || incident.type === "TEXT") {
+        reasoning = "Fallback: Video input (inferred/explicit) routed to Surveillance Agent";
+    } else if (isAudio || incident.type === "TEXT") {
         target = "TRIAGE";
-        reasoning = `Fallback: ${incident.type} input routed to Triage Agent`;
+        reasoning = "Fallback: Audio/Text input routed to Triage Agent";
     } else {
         target = "TRIAGE";
         reasoning = "Fallback: Unknown type defaulted to Triage Agent";
@@ -161,10 +165,10 @@ async function parseDirective(incident: Incident): Promise<{ command_intent: str
 // The Coordinator Agent acts as the "Traffic Cop"
 export async function coordinateIncident(incident: Incident): Promise<Incident> {
     console.log(`[COORDINATOR] ========================================`);
-    console.log(`[COORDINATOR] Received incident ${incident.id} of type ${incident.type}`);
+    console.log(`[COORDINATOR] Received incident ${incident.id} of type ${incident.type || "UNKNOWN"}`);
 
     let processedIncident = { ...incident };
-    let routingTrace = `[COORDINATOR] Input Type: ${incident.type}. `;
+    let routingTrace = `[COORDINATOR] Input Type: ${incident.type || "UNKNOWN (Auto-Inferred)"}. `;
 
     // For Dual Analysis: Handle directive parsing separately if context exists
     let directiveResult: { command_intent: string, reasoning_trace: string } | null = null;
