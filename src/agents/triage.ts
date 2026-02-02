@@ -85,7 +85,10 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     console.log(`[TRIAGE] ========================================`);
     console.log(`[TRIAGE] Analyzing incident ${incident.id}...`);
     console.log(`[TRIAGE] Using model: ${MODELS.TRIAGE}`);
-    console.log(`[TRIAGE] Input type: ${incident.type}`);
+    const inferredType = incident.type || (incident.raw_input.match(/\.(mp3|wav|ogg|webm|m4a|flac)$/i) ? 'AUDIO (inferred)' :
+        incident.raw_input.match(/\.(mp4|webm|mov|avi)$/i) ? 'VIDEO (inferred)' :
+            incident.raw_input.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'IMAGE (inferred)' : 'TEXT');
+    console.log(`[TRIAGE] Input type: ${inferredType}`);
     console.log(`[TRIAGE] Raw input: ${incident.raw_input.substring(0, 100)}...`);
 
     const systemInstruction = `
@@ -162,11 +165,18 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     }
     `;
 
+    // Construct signal metadata from available location data
+    const signalMetadata = incident.signal_metadata || (incident.location ? {
+        gps_coords: { lat: incident.location.lat, lng: incident.location.lng },
+        cell_tower_address: incident.location.address,
+        source: "GPS_TELEMETRY"
+    } : "NONE");
+
     const userPrompt = `
     INCIDENT DATA:
     ID: ${incident.id}
-    Type: ${incident.type}
-    Signal Metadata: ${JSON.stringify(incident.signal_metadata || "NONE")}
+    Type: ${incident.type || "UNKNOWN (analyze raw input)"}
+    Signal Metadata (GPS/Cell Tower): ${JSON.stringify(signalMetadata)}
     Description/Alert: ${incident.description_for_simulation || "N/A"}
     Raw Input: ${incident.raw_input.substring(0, 500)}...
     
@@ -176,23 +186,39 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     try {
         const contents: any[] = [{ text: userPrompt }];
 
+        // Detect audio files by extension (supports agentic routing where type is inferred)
+        const audioExtensions = ['.mp3', '.wav', '.ogg', '.webm', '.m4a', '.flac'];
+        const isAudioFile = audioExtensions.some(ext => incident.raw_input.toLowerCase().endsWith(ext));
+
         // Robust audio file loading with production fallback
-        if (incident.type === "AUDIO" && incident.raw_input.startsWith("/")) {
+        if (isAudioFile && incident.raw_input.startsWith("/")) {
             let audioData: string | Buffer = "";
             try {
                 const publicPath = path.join(process.cwd(), "public");
                 const filePath = path.join(publicPath, incident.raw_input);
+
+                // Determine MIME type based on extension
+                const ext = path.extname(incident.raw_input).toLowerCase();
+                const mimeTypes: Record<string, string> = {
+                    '.mp3': 'audio/mpeg',
+                    '.wav': 'audio/wav',
+                    '.ogg': 'audio/ogg',
+                    '.webm': 'audio/webm',
+                    '.m4a': 'audio/mp4',
+                    '.flac': 'audio/flac'
+                };
+                const mimeType = mimeTypes[ext] || 'audio/mpeg';
 
                 // Safety check for Vercel environments
                 if (fs.existsSync(filePath)) {
                     audioData = fs.readFileSync(filePath).toString("base64");
                     contents.push({
                         inlineData: {
-                            mimeType: "audio/mpeg",
+                            mimeType: mimeType,
                             data: audioData
                         }
                     });
-                    console.log(`[TRIAGE] Attached audio file: ${filePath}`);
+                    console.log(`[TRIAGE] ✅ Attached audio file: ${filePath} (${mimeType})`);
                 } else {
                     console.warn(`[Triage] Audio file missing at ${filePath}. Checking alternative paths...`);
                     // File not found in expected location - fail gracefully

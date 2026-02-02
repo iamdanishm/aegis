@@ -34,18 +34,11 @@ if (!globalForAi.gemini) {
 }
 
 /**
- * Generates or validates a thought signature.
- * If the model provides a signature, it validates/uses it.
- * Otherwise, it falls back to a server-side HMAC for integrity.
+ * Generates a cryptographic thought signature for audit trail integrity.
+ * Uses HMAC-SHA256 to create a verifiable hash of the AI's reasoning process.
+ * This serves as "Chain of Custody" proof that the reasoning wasn't tampered with.
  */
-export function generateThoughtSignature(reasoning: string, priority: string = "UNKNOWN", timestamp: number = Date.now(), modelSignature?: string): string {
-    if (modelSignature) {
-        // In a real scenario, we might verify this against a public key or similar
-        // For now, if the model gave us a signature, we trust it came from the trusted execution environment
-        return `GEMINI-AUTH:${modelSignature.substring(0, 16)}`;
-    }
-
-    // Fallback: HMAC-SHA256
+export function generateThoughtSignature(reasoning: string, priority: string = "UNKNOWN", timestamp: number = Date.now()): string {
     const secret = process.env.SECRET_KEY || "dev-secret-do-not-use-in-prod";
     const data = `${reasoning}|${priority}|${timestamp}`;
     const hmac = crypto.createHmac("sha256", secret).update(data).digest("hex");

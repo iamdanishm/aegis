@@ -446,9 +446,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                             </div>
                             <div className="text-[8px] text-zinc-700 font-mono flex items-center gap-1">
                                 <span className="w-1 h-1 bg-emerald-500 rounded-full" />
-                                {latestTriaged.thought_signature ?
-                                    (latestTriaged.thought_signature.startsWith("GEMINI-AUTH") ? "Gemini Thought Signature" : "Verifiable Audit Token")
-                                    : "SIG-VERIFIED"}
+                                {latestTriaged.thought_signature ? "HMAC-256 Audit Token" : "SIG-VERIFIED"}
                             </div>
                         </div>
                     )}
