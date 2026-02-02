@@ -153,8 +153,10 @@ export function ReasoningLog({ className }: { className?: string }) {
         .reverse()
         .find(i => i.reasoning_trace && (i.status === "TRIAGED" || i.status === "RESOLVED" || i.status === "ANALYZING"));
 
-    // Check if there's an incident currently being analyzed, or fallback to the first pending one in queue
-    const pendingIncident = incidents.find(i => i.status === "ANALYZING") || incidents.find(i => i.status === "PENDING");
+    // Check if there's an incident currently being analyzed (prioritize spotlight), or fallback to first pending
+    const pendingIncident = (spotlightId ? incidents.find(i => i.id === spotlightId) : null) ||
+        incidents.find(i => i.status === "ANALYZING") ||
+        incidents.find(i => i.status === "PENDING");
 
     // Auto-scroll thoughts
     useEffect(() => {
@@ -219,7 +221,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                             {processingBatch.length} signals
                         </span>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-1 max-h-[80px] overflow-y-auto custom-scrollbar pr-1">
                         {backgroundIncidents.map((incident) => incident && (
                             <div key={incident.id} className="flex items-center gap-2 bg-zinc-900/50 rounded px-2 py-1.5 border border-zinc-800">
                                 {incident.status === "ANALYZING" ? (
