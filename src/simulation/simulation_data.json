@@ -7,7 +7,7 @@
         "location": {
             "lat": 40.7128,
             "lng": -74.0060,
-            "address": "Manhattan, New York, USA"
+            "address": "California USA"
         },
         "status": "PENDING"
     },
@@ -17,9 +17,33 @@
         "type": "VIDEO",
         "raw_input": "/Simulation Data/Videos/v1.mp4",
         "location": {
+            "lat": 37.57074435338501,
+            "lng": 126.97540993893193,
+            "address": "Seoul, South Korea"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VIDEO-002",
+        "trigger_time_offset": 3,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v2.mp4",
+        "location": {
             "lat": 19.0760,
             "lng": 72.8777,
             "address": "Marine Drive, Mumbai, India"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VIDEO-003",
+        "trigger_time_offset": 4,
+        "type": "VIDEO",
+        "raw_input": "/Simulation Data/Videos/v3.mp4",
+        "location": {
+            "lat": 37.609481,
+            "lng": 126.896698,
+            "address": "China"
         },
         "status": "PENDING"
     }
