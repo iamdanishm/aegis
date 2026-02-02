@@ -29,7 +29,7 @@ export async function generateMissionReport(incidents: Incident[], logs: string[
     const incidents_log = incidents.map(i => ({
         id: i.id,
         timestamp: i.timestamp,
-        type: i.type,
+        type: i.type || "UNKNOWN",
         priority: i.priority || "UNKNOWN",
         status: i.status,
         category: i.category || "Uncategorized",

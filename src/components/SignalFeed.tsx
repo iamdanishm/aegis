@@ -59,7 +59,7 @@ const getPriorityStyles = (p?: string) => {
     }
 };
 
-const getTypeIcon = (type: string) => {
+const getTypeIcon = (type: string | undefined) => {
     switch (type) {
         case "AUDIO": return <Mic className="w-3.5 h-3.5" />;
         case "VIDEO": return <Video className="w-3.5 h-3.5" />;

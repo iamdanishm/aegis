@@ -61,7 +61,7 @@ export function useDisasterSimulation() {
 
                 const incident: Incident = {
                     ...event,
-                    type: event.type as any,
+
                     status: "PENDING", // Initial state
                     timestamp: new Date().toISOString(),
                     responder_status: "PENDING" // Default responder status
