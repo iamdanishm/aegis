@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useSimulationStore } from "@/lib/store";
 import simulationData from "@/simulation/simulation_data.json";
 import { coordinateIncident } from "@/agents/coordinator";
@@ -7,6 +7,9 @@ import { type Incident } from "@/lib/types";
 
 // Worker Pool Configuration
 const MAX_CONCURRENT_WORKERS = 3;
+
+// Throttle interval for streaming updates (ms) - prevents UI glitches from rapid updates
+const STREAM_UPDATE_THROTTLE_MS = 50;
 
 export function useDisasterSimulation() {
     const {
@@ -21,6 +24,47 @@ export function useDisasterSimulation() {
         setRawThinkingProcess,
         rawThinkingProcess
     } = useSimulationStore();
+
+    // Throttled streaming buffer - holds pending content between flushes
+    const streamBufferRef = useRef<string>("");
+    const streamFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastFlushTimeRef = useRef<number>(0);
+
+    // Throttled setter for raw thinking process - prevents UI glitches from rapid streaming
+    const throttledSetRawThinkingProcess = useCallback((content: string | null) => {
+        // If null, immediately clear (end of stream)
+        if (content === null) {
+            streamBufferRef.current = "";
+            if (streamFlushTimeoutRef.current) {
+                clearTimeout(streamFlushTimeoutRef.current);
+                streamFlushTimeoutRef.current = null;
+            }
+            setRawThinkingProcess(null);
+            return;
+        }
+
+        // Update buffer with new content
+        streamBufferRef.current = content;
+
+        const now = Date.now();
+        const timeSinceLastFlush = now - lastFlushTimeRef.current;
+
+        // If enough time has passed, flush immediately
+        if (timeSinceLastFlush >= STREAM_UPDATE_THROTTLE_MS) {
+            lastFlushTimeRef.current = now;
+            setRawThinkingProcess(streamBufferRef.current);
+            return;
+        }
+
+        // Otherwise, schedule a flush if not already scheduled
+        if (!streamFlushTimeoutRef.current) {
+            streamFlushTimeoutRef.current = setTimeout(() => {
+                lastFlushTimeRef.current = Date.now();
+                setRawThinkingProcess(streamBufferRef.current);
+                streamFlushTimeoutRef.current = null;
+            }, STREAM_UPDATE_THROTTLE_MS - timeSinceLastFlush);
+        }
+    }, [setRawThinkingProcess]);
 
     // Worker Pool State - tracks how many workers are currently active
     const activeWorkerCountRef = useRef(0);
@@ -265,7 +309,7 @@ export function useDisasterSimulation() {
                     const backgroundPromises = backgroundIncidents.map(inc => processBackgroundIncident(inc));
 
                     // Process Hero with full streaming and UI updates
-                    setRawThinkingProcess("");
+                    throttledSetRawThinkingProcess("");
 
                     // 1. Setup AbortController for Interruption
                     const controller = new AbortController();
@@ -307,7 +351,7 @@ export function useDisasterSimulation() {
                                     switch (event.type) {
                                         case "thought":
                                             fullThinking += event.content;
-                                            setRawThinkingProcess(fullThinking);
+                                            throttledSetRawThinkingProcess(fullThinking);
                                             break;
                                         case "agent_info":
                                             useSimulationStore.getState().setActiveAgent(event.agent);
@@ -379,7 +423,7 @@ export function useDisasterSimulation() {
                     const freshIncident = useSimulationStore.getState().incidents.find(i => i.id === heroIncident.id);
                     if (freshIncident?.transcript_context) {
                         addLog(`[${time}s] [COORDINATOR] 🗣️ User context detected. Running Override Pass...`);
-                        setRawThinkingProcess(""); // Reset for new pass
+                        throttledSetRawThinkingProcess(""); // Reset for new pass
 
                         try {
                             // Run a SECOND analysis pass with the user's context
@@ -418,7 +462,7 @@ export function useDisasterSimulation() {
                                             switch (event.type) {
                                                 case "thought":
                                                     overrideThinking += event.content;
-                                                    setRawThinkingProcess(overrideThinking);
+                                                    throttledSetRawThinkingProcess(overrideThinking);
                                                     break;
                                                 case "agent_info":
                                                     useSimulationStore.getState().setActiveAgent(event.agent);
@@ -462,7 +506,7 @@ export function useDisasterSimulation() {
                             addLog(`[${time}s] [COORDINATOR] ⚠️ Override pass failed: ${overrideError.message}`);
                             updateIncident(heroIncident.id, { status: "TRIAGED" });
                         } finally {
-                            setRawThinkingProcess(null);
+                            throttledSetRawThinkingProcess(null);
                             useSimulationStore.getState().setIsVoiceProcessing(false);
                             partialResultRef.current = null;
                         }
@@ -494,7 +538,7 @@ export function useDisasterSimulation() {
 
                 // Only clear spotlight/agent if no more workers are active
                 if (activeWorkerCountRef.current === 0) {
-                    setRawThinkingProcess(null);
+                    throttledSetRawThinkingProcess(null);
                     useSimulationStore.getState().setActiveAgent(null);
                     useSimulationStore.getState().setActiveModel(null);
                     useSimulationStore.getState().setSpotlightId(null);
@@ -503,7 +547,7 @@ export function useDisasterSimulation() {
         };
 
         processQueue();
-    }, [time, isPlaying, allIncidents, isMockMode, updateIncident, addLog, setRawThinkingProcess]);
+    }, [time, isPlaying, allIncidents, isMockMode, updateIncident, addLog, throttledSetRawThinkingProcess]);
 
 
     // PROTOCOL ZERO: Timeout Monitor
