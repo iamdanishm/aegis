@@ -92,7 +92,27 @@ export const useSimulationStore = create<SimulationState>()(
 
             setTime: (time) => set({ time }),
             incrementTime: () => set((state) => ({ time: state.time + 1 })),
-            setIsPlaying: (isPlaying) => set({ isPlaying }),
+            setIsPlaying: (isPlaying) => set((state) => {
+                // When STOPPING the simulation, abort all active processing
+                if (!isPlaying && state.isPlaying) {
+                    // Abort the active hero fetch if running
+                    if (state.activeAbortController) {
+                        state.activeAbortController.abort();
+                    }
+                    // Reset all transient processing state
+                    return {
+                        isPlaying: false,
+                        activeAbortController: null,
+                        rawThinkingProcess: null,
+                        activeAgent: null,
+                        activeModel: null,
+                        spotlightId: null,
+                        processingBatch: [],
+                        isVoiceProcessing: false,
+                    };
+                }
+                return { isPlaying };
+            }),
 
             addIncident: (incident) => set((state) => ({
                 incidents: [...state.incidents, incident],

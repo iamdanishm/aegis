@@ -74,6 +74,29 @@ export function useDisasterSimulation() {
     // Ref to preserve partial analysis results before abort (for Issue 2 fix)
     const partialResultRef = useRef<any>(null);
 
+    // Master AbortController for all background fetches - allows stopping ALL processing at once
+    const masterAbortControllerRef = useRef<AbortController | null>(null);
+
+    // Cleanup effect: When simulation STOPS, abort all ongoing work and reset refs
+    useEffect(() => {
+        if (!isPlaying) {
+            // Abort all background fetches
+            if (masterAbortControllerRef.current) {
+                masterAbortControllerRef.current.abort();
+                masterAbortControllerRef.current = null;
+            }
+            // Reset worker tracking refs
+            activeWorkerCountRef.current = 0;
+            processingIdsRef.current.clear();
+            // Clear streaming buffer
+            streamBufferRef.current = "";
+            if (streamFlushTimeoutRef.current) {
+                clearTimeout(streamFlushTimeoutRef.current);
+                streamFlushTimeoutRef.current = null;
+            }
+        }
+    }, [isPlaying]);
+
 
     // ------------------------------------------------------------------
     // 1. Mission Timer (Always runs, decoupled from processing)
@@ -190,6 +213,10 @@ export function useDisasterSimulation() {
             useSimulationStore.getState().setProcessingBatch(Array.from(processingIdsRef.current));
 
             try {
+                // Create a master abort controller for this batch
+                masterAbortControllerRef.current = new AbortController();
+                const masterSignal = masterAbortControllerRef.current.signal;
+
                 // Mark ALL batch incidents as ANALYZING immediately
                 for (const incident of batch) {
                     updateIncident(incident.id, { status: "ANALYZING" });
@@ -204,13 +231,13 @@ export function useDisasterSimulation() {
                 // If we have a hero, everyone else is background. If no hero, EVERYONE is background.
                 const backgroundIncidents = batch.filter(inc => inc.id !== heroId);
 
-                // Process background incidents (non-streaming, parallel)
-                const processBackgroundIncident = async (incident: typeof batch[0]) => {
+                const processBackgroundIncident = async (incident: typeof batch[0], abortSignal: AbortSignal) => {
                     try {
                         const response = await fetch("/api/coordinate/stream", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ ...incident, status: "ANALYZING" }),
+                            signal: abortSignal, // Attach abort signal
                         });
 
                         if (!response.body) throw new Error("No response body");
@@ -244,6 +271,11 @@ export function useDisasterSimulation() {
                         updateIncident(incident.id, { ...result, status: "TRIAGED" });
                         addLog(`[${time}s] [COORDINATOR] 📋 Background complete: ${incident.id}`);
                     } catch (error: any) {
+                        // Silently ignore abort errors - they're expected when stopping
+                        if (error.name === "AbortError") {
+                            console.log(`[QUEUE] Background incident ${incident.id} aborted`);
+                            return;
+                        }
                         console.error(`Background incident ${incident.id} error:`, error);
                         updateIncident(incident.id, {
                             status: "TRIAGED",
@@ -254,7 +286,7 @@ export function useDisasterSimulation() {
                 };
 
                 // Start background processing (don't await - run in parallel)
-                const backgroundPromises = backgroundIncidents.map(inc => processBackgroundIncident(inc));
+                const backgroundPromises = backgroundIncidents.map(inc => processBackgroundIncident(inc, masterSignal));
 
                 // Process Hero with full streaming and UI updates (ONLY IF WE HAVE A HERO)
                 if (heroIncident) {

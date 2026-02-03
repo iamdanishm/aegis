@@ -193,6 +193,12 @@ export default function ResponderView() {
                   // Starting new simulation - reset state
                   setReport(null);
                   setIsMissionComplete(false);
+                } else {
+                  // STOPPING: Reset any ANALYZING incidents back to PENDING so they can resume later
+                  const analyzingIncidents = incidents.filter(i => i.status === "ANALYZING");
+                  analyzingIncidents.forEach(inc => {
+                    useSimulationStore.getState().updateIncident(inc.id, { status: "PENDING" });
+                  });
                 }
                 setIsPlaying(!isPlaying);
               }}
