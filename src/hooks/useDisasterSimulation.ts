@@ -93,7 +93,7 @@ export function useDisasterSimulation() {
     // ------------------------------------------------------------------
     // 2. Event Spawner (Adds to PENDING list based on time)
     // ------------------------------------------------------------------
-    const SPAWN_INTERVAL = 5; // Seconds between events
+    const SPAWN_INTERVAL = 4; // Seconds between events
     const SPAWN_START_DELAY = 2; // Start after 2s
 
     useEffect(() => {

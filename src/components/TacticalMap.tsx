@@ -140,12 +140,21 @@ function MapController({ incidents }: { incidents: Incident[] }) {
     }, [spotlightId, map, cinematicFlyTo, incidents]);
 
     // 3. Fly to Manual FOCUSED incident - Highest Priority (User Override)
+    // IMPORTANT: Track the last focused ID to prevent re-animation when incidents array updates
+    const lastFocusedFlyId = useRef<string | null>(null);
     useEffect(() => {
-        if (!map || !focusedIncidentId) return;
+        if (!map || !focusedIncidentId) {
+            lastFocusedFlyId.current = null; // Reset when focus clears
+            return;
+        }
+
+        // Only fly if this is a NEW focus (not a re-render from incidents changing)
+        if (lastFocusedFlyId.current === focusedIncidentId) return;
 
         const incident = incidents.find(i => i.id === focusedIncidentId);
         if (incident?.location?.lat && incident?.location?.lng) {
             cinematicFlyTo(incident.location.lat, incident.location.lng, 18);
+            lastFocusedFlyId.current = focusedIncidentId;
         }
     }, [focusedIncidentId, incidents, map, cinematicFlyTo]);
 

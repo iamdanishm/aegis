@@ -5,7 +5,7 @@
         "location": {
             "lat": 40.7128,
             "lng": -74.0060,
-            "address": ""
+            "address": "New York City, USA"
         },
         "status": "PENDING"
     },
@@ -13,8 +13,8 @@
         "id": "EVT-VIDEO-001",
         "raw_input": "/SeedData/Videos/v1.mp4",
         "location": {
-            "lat": 37.57074435338501,
-            "lng": 126.97540993893193,
+            "lat": 37.5707,
+            "lng": 126.9754,
             "address": "Seoul, South Korea"
         },
         "status": "PENDING"
@@ -30,12 +30,132 @@
         "status": "PENDING"
     },
     {
-        "id": "EVT-VIDEO-003",
+        "id": "EVT-TEXT-001",
+        "raw_input": "911 Operator: What is your emergency? Caller: Help! The reservoir dam just cracked. There's a wall of water coming towards the valley! Send everyone now!",
+        "location": {
+            "lat": 39.4292,
+            "lng": -121.4888,
+            "address": "Oroville Dam, California"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-BIO-001",
+        "raw_input": "[SYSTEM ALERT]: Bio-containment failure in Sector 7. Unknown pathogen detected in ventilation. Standard quarantine protocols failed.",
+        "location": {
+            "lat": 46.2044,
+            "lng": 6.1432,
+            "address": "CERN Laboratory, Geneva"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-NUC-001",
+        "raw_input": "911 Operator: 911, please state the location. Caller: I'm a technician at the power plant. The cooling system is unresponsive and the core temperature is spiking into the red zone. We need an immediate evacuation of the 10-mile radius!",
+        "location": {
+            "lat": 48.8566,
+            "lng": 2.3522,
+            "address": "Nuclear Facility, France"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-CYBER-001",
+        "raw_input": "[TRANSCRIPT]: Emergency services are receiving reports of a total blackout across the financial district. Traffic lights are synced to green in all directions. Possible synchronized cyber attack on the municipal grid.",
+        "location": {
+            "lat": 35.6762,
+            "lng": 139.6503,
+            "address": "Shinjuku, Tokyo"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VAGUE-001",
+        "raw_input": "Caller: Uh, hi. My cat, Mr. Whiskers, is stuck in the oak tree again. Last time the fire department came but they were mean. Can you send the AI guys?",
+        "location": {
+            "lat": 34.0522,
+            "lng": -118.2437,
+            "address": "Los Angeles, CA"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-FAKE-001",
+        "raw_input": "911 Operator: 911? Caller: (Laughing) Yeah, there's a giant Godzilla-sized lizard eating the Empire State Building! Haha, gotcha!",
+        "location": {
+            "lat": 40.7484,
+            "lng": -73.9857,
+            "address": "Empire State Building, NY"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-THEFT-001",
+        "raw_input": "Caller: Someone just smashed my window and took my gym bag. This is the third time this week! This city is going to the dogs!",
+        "location": {
+            "lat": 51.5074,
+            "lng": -0.1278,
+            "address": "London, UK"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-BIO-002",
+        "raw_input": "TRANSCRIPT ALERT: A tanker truck flipped on the I-95. A green gaseous cloud is spreading. People are collapsing on the highway. High toxicity suspected.",
+        "location": {
+            "lat": 38.8951,
+            "lng": -77.0364,
+            "address": "I-95, Washington DC"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-CYBER-002",
+        "raw_input": "[ALERT]: Local hospital ransomware attack. All patient monitors have gone dark. Emergency surgeries being performed by flashlight. Source IP traced to offshore botnet.",
+        "location": {
+            "lat": 52.5200,
+            "lng": 13.4050,
+            "address": "Berlin, Germany"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-NUC-002",
+        "raw_input": "911 Operator: What is the nature of the emergency? Caller: I'm at the scrap yard. We just punctured a lead container with a 'Radioactive' symbol. Everyone's skin is itching and the Geiger counters are screaming.",
+        "location": {
+            "lat": 43.6532,
+            "lng": -79.3832,
+            "address": "Industrial District, Toronto"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-DAM-002",
         "raw_input": "/SeedData/Videos/v3.mov",
         "location": {
-            "lat": 37.609481,
-            "lng": 126.896698,
-            "address": "China"
+            "lat": 36.0161,
+            "lng": -114.7377,
+            "address": "Hoover Dam, Nevada"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VAGUE-002",
+        "raw_input": "Caller: There's a strange light in the sky. It's hovering over my barn. I think they're coming for my cows. I'm arming myself now.",
+        "location": {
+            "lat": 41.8781,
+            "lng": -87.6298,
+            "address": "Rural Illinois"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-SWAT-001",
+        "raw_input": "Caller: (Distorted voice) I have a hostage at 452 Oak Street. If I see a single cop, I'll start shooting. You have 5 minutes.",
+        "location": {
+            "lat": 25.7617,
+            "lng": -80.1918,
+            "address": "Miami, FL"
         },
         "status": "PENDING"
     },
@@ -43,9 +163,209 @@
         "id": "EVT-AUDIO-002",
         "raw_input": "/SeedData/Audios/audio2.mp3",
         "location": {
-            "lat": 51.5074,
-            "lng": -0.1278,
-            "address": "London, UK"
+            "lat": 45.4215,
+            "lng": -75.6972,
+            "address": "Ottawa, Canada"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-CYBER-003",
+        "raw_input": "TRANSCRIPT: Water treatment plant reporting unauthorized remote access to chemical dosing systems. Chlorine levels being set to fatal concentrations. Manual override required.",
+        "location": {
+            "lat": 28.5383,
+            "lng": -81.3792,
+            "address": "Orlando, FL"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-BIO-003",
+        "raw_input": "911 Call: I just opened a package at the post office and a white powder puffed out. Now I can't breathe and my coworkers are breaking out in hives.",
+        "location": {
+            "lat": 39.9526,
+            "lng": -75.1652,
+            "address": "Philadelphia, PA"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VAGUE-003",
+        "raw_input": "Caller: My neighbor's dog won't stop barking. It's been three hours. I have a big presentation tomorrow and this is unacceptable.",
+        "location": {
+            "lat": 47.6062,
+            "lng": -122.3321,
+            "address": "Seattle, WA"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-FIRE-001",
+        "raw_input": "[AUDIO TRANSCRIPTION]: (Sound of crackling and sirens) Get out! Get out! The roof is collapsing! We have three people trapped in the 4th-floor hallway!",
+        "location": {
+            "lat": 42.3601,
+            "lng": -71.0589,
+            "address": "Boston, MA"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-NUC-003",
+        "raw_input": "ALERT: Satellite detection of a localized thermal spike and radiation signature at the decommissioned research facility in the tundra.",
+        "location": {
+            "lat": 64.1265,
+            "lng": -21.8277,
+            "address": "Reykjavik, Iceland"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-NORMAL-001",
+        "raw_input": "911 Operator: 911? Caller: There's a 10-car pileup on the bridge. One car is hanging over the edge! We need heavy rescue and ambulances immediately.",
+        "location": {
+            "lat": 44.9778,
+            "lng": -93.2650,
+            "address": "Minneapolis, MN"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-CYBER-004",
+        "raw_input": "TRANSCRIPT: Stock Exchange reporting a massive data wiped in progress. Ransom note appearing on all terminals. Trading halted globally.",
+        "location": {
+            "lat": 55.7558,
+            "lng": 37.6173,
+            "address": "Moscow, Russia"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VAGUE-004",
+        "raw_input": "Caller: Is this the police? Yeah, I think I left my oven on. I'm already at the airport. Can someone go check? I live at 12 Sunflower Lane.",
+        "location": {
+            "lat": 52.3676,
+            "lng": 4.9041,
+            "address": "Amsterdam, Netherlands"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-AUDIO-003",
+        "raw_input": "/SeedData/Audios/rescue_call.wav",
+        "location": {
+            "lat": -33.8688,
+            "lng": 151.2093,
+            "address": "Sydney, Australia"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-BIO-004",
+        "raw_input": "911 Caller: Help, my husband just came back from the jungle expedition and he's coughing up blood and has a high fever. I think it's that new virus they mentioned on the news.",
+        "location": {
+            "lat": -23.5505,
+            "lng": -46.6333,
+            "address": "Sao Paulo, Brazil"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-DAM-003",
+        "raw_input": "URGENT ALERT: Ground sensors indicate massive structural shifting in the Three Gorges Dam bypass. Seepage rates have tripled in the last hour.",
+        "location": {
+            "lat": 30.8238,
+            "lng": 111.0031,
+            "address": "Yichang, China"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-VAGUE-005",
+        "raw_input": "Caller: Someone stole my identity! My bank account is empty! Please, I have kids to feed!",
+        "location": {
+            "lat": 33.4484,
+            "lng": -112.0740,
+            "address": "Phoenix, AZ"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-AUDIO-004",
+        "raw_input": "/SeedData/Audios/flood_distress.mp3",
+        "location": {
+            "lat": 23.8103,
+            "lng": 90.4125,
+            "address": "Dhaka, Bangladesh"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-FAKE-002",
+        "raw_input": "911 Caller: I'd like to order a large pepperoni pizza... (911 Operator: Ma'am, this is an emergency line) ...Oh, I know. My 'boyfriend' doesn't like olives. (911 Operator: Help is on the way, stay on the line).",
+        "location": {
+            "lat": 29.7604,
+            "lng": -95.3698,
+            "address": "Houston, TX"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-CYBER-005",
+        "raw_input": "ALERT: Air Traffic Control systems for the entire tri-state area have been compromised. Planes are being given conflicting altitude instructions. Grounding all flights.",
+        "location": {
+            "lat": 40.6413,
+            "lng": -73.7781,
+            "address": "JFK Airport, NY"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-PRANK-001",
+        "raw_input": "Caller: (Giggling) Is your refrigerator running? 911 Operator: Sir, this is an emergency line. Caller: Well you better go catch it! (Click)",
+        "location": {
+            "lat": 40.7128,
+            "lng": -74.0060,
+            "address": "Brooklyn, NY"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-PRANK-002",
+        "raw_input": "911 Operator: 911, what is your emergency? Caller: Help! My shadow is following me! Everywhere I go, it's right there! I think it's a spy!",
+        "location": {
+            "lat": 34.0522,
+            "lng": -118.2437,
+            "address": "Hollywood, CA"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-PRANK-003",
+        "raw_input": "Caller: Hey, do you guys know the Wi-Fi password for the police station? I'm parked outside and I really need to check my email.",
+        "location": {
+            "lat": 41.8781,
+            "lng": -87.6298,
+            "address": "Chicago, IL"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-PRANK-004",
+        "raw_input": "911 Caller: (Whispering) The squirrels are planning something. I saw them in a circle. They have tiny maps. You need to alert the National Guard.",
+        "location": {
+            "lat": 37.7749,
+            "lng": -122.4194,
+            "address": "San Francisco, CA"
+        },
+        "status": "PENDING"
+    },
+    {
+        "id": "EVT-PRANK-005",
+        "raw_input": "Caller: Yo, I just saw a ghost! It was totally spooky! It tried to steal my chips! Can you guys send an exorcist?",
+        "location": {
+            "lat": 25.7617,
+            "lng": -80.1918,
+            "address": "Miami, FL"
         },
         "status": "PENDING"
     }
