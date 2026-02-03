@@ -97,63 +97,50 @@
   border: none !important;
 }
 
-/* Leaflet Container Override */
-.leaflet-container {
+/* Google Maps Container Override */
+.gm-style {
   background: #09090b !important;
   font-family: inherit;
 }
 
-/* Leaflet Popup Tactical Style */
-.leaflet-popup-content-wrapper {
+/* Google Maps InfoWindow Tactical Style */
+.gm-style-iw {
+  padding: 0 !important;
+}
+
+.gm-style-iw-c {
   background: rgba(9, 9, 11, 0.95) !important;
   backdrop-filter: blur(8px);
   border: 1px solid rgba(16, 185, 129, 0.3) !important;
   border-radius: 6px !important;
-  color: #fafafa !important;
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  padding: 0 !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.1);
 }
 
-.leaflet-popup-tip {
+.gm-style-iw-d {
+  overflow: auto !important;
+}
+
+.gm-style-iw-tc::after {
   background: rgba(9, 9, 11, 0.95) !important;
   border: 1px solid rgba(16, 185, 129, 0.3) !important;
-  box-shadow: none;
 }
 
-.leaflet-popup-close-button {
-  color: #71717a !important;
+/* Hide default close button, we style our own */
+.gm-style-iw-chr button {
+  display: none !important;
 }
 
-.leaflet-popup-close-button:hover {
-  color: #fafafa !important;
+/* Google Maps Controls */
+.gm-style .gm-style-cc,
+.gm-style .gmnoprint {
+  opacity: 0.3;
+  transition: opacity 0.3s ease;
 }
 
-/* Leaflet Controls */
-.leaflet-control-zoom {
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  background: rgba(9, 9, 11, 0.9) !important;
-}
-
-.leaflet-control-zoom a {
-  background: rgba(9, 9, 11, 0.9) !important;
-  color: #a1a1aa !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-
-.leaflet-control-zoom a:hover {
-  background: rgba(24, 24, 27, 0.9) !important;
-  color: #fafafa !important;
-}
-
-/* Attribution */
-.leaflet-control-attribution {
-  background: rgba(9, 9, 11, 0.7) !important;
-  color: #52525b !important;
-  font-size: 9px !important;
-}
-
-.leaflet-control-attribution a {
-  color: #71717a !important;
+.gm-style .gm-style-cc:hover,
+.gm-style .gmnoprint:hover {
+  opacity: 0.7;
 }
 
 /* -------------------------------------------------------------------------- */

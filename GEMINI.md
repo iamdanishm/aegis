@@ -14,7 +14,7 @@ Key Differentiator: "Glass Box AI." We explicitly visualize the AI's internal re
 * **Language:** JavaScript  
 * **AI SDK:** google-genai targeting **Gemini 3 Pro** & **Flash**.  
 * **Styling:** Tailwind CSS \+ Shadcn/UI (Theme: "AI Centric Agentic Tactical Dark Mode").  
-* **Maps:** react-leaflet.  
+* **Maps:** @vis.gl/react-google-maps (Google Maps JavaScript API).  
 * **State:** Zustand (for the Simulation Clock).
 
 ## **3\. Hierarchical Multi-Agent Architecture**

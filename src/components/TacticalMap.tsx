@@ -1,29 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import dynamic from "next/dynamic";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import { useSimulationStore } from "@/lib/store";
 import { type Incident } from "@/lib/types";
-import { divIcon } from "leaflet";
 import { AnimatePresence, motion } from "framer-motion";
-
-// Dynamic import for Leaflet (SSR bypass)
-const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
-
-
-// Map Controller component - dynamically imported
-const MapControllerInner = dynamic(
-    () => import("./MapController").then(mod => mod.MapController),
-    { ssr: false }
-);
-
-const MapFocusHandler = dynamic(
-    () => import("./MapFocusHandler").then(mod => mod.MapFocusHandler),
-    { ssr: false }
-);
 
 // Priority color mapping (Hex values)
 const PRIORITY_COLORS = {
@@ -34,149 +15,402 @@ const PRIORITY_COLORS = {
     DEFAULT: "#06b6d4"  // Cyan 500
 };
 
-// --- Custom HTML Marker Generator ---
-const createPulseIcon = (incident: Incident) => {
+// Google Maps dark mode style
+const DARK_MAP_STYLE = [
+    { elementType: "geometry", stylers: [{ color: "#09090b" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#09090b" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#71717a" }] },
+    {
+        featureType: "administrative.locality",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#a1a1aa" }],
+    },
+    {
+        featureType: "poi",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#52525b" }],
+    },
+    {
+        featureType: "poi.park",
+        elementType: "geometry",
+        stylers: [{ color: "#18181b" }],
+    },
+    {
+        featureType: "poi.park",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#3f3f46" }],
+    },
+    {
+        featureType: "road",
+        elementType: "geometry",
+        stylers: [{ color: "#27272a" }],
+    },
+    {
+        featureType: "road",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#18181b" }],
+    },
+    {
+        featureType: "road.highway",
+        elementType: "geometry",
+        stylers: [{ color: "#3f3f46" }],
+    },
+    {
+        featureType: "road.highway",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#27272a" }],
+    },
+    {
+        featureType: "road.highway",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#a1a1aa" }],
+    },
+    {
+        featureType: "transit",
+        elementType: "geometry",
+        stylers: [{ color: "#27272a" }],
+    },
+    {
+        featureType: "transit.station",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#52525b" }],
+    },
+    {
+        featureType: "water",
+        elementType: "geometry",
+        stylers: [{ color: "#0c0c0e" }],
+    },
+    {
+        featureType: "water",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#3f3f46" }],
+    },
+    {
+        featureType: "water",
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#09090b" }],
+    },
+];
+
+// Map Controller component for auto-flying to incidents
+function MapController({ incidents }: { incidents: Incident[] }) {
+    const { focusedIncidentId } = useSimulationStore();
+    const map = useMap();
+    const lastAutoFlyId = { current: null as string | null };
+    const animationFrameRef = useRef<number | null>(null);
+
+    // Hybrid Fly-To Animation
+    const smoothFlyTo = useCallback((targetLat: number, targetLng: number, targetZoom: number) => {
+        if (!map) return;
+
+        // Cancel any existing animation
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+
+        const startCenter = map.getCenter();
+        const startZoom = map.getZoom() || 13;
+
+        // Safety check
+        if (!startCenter || !Number.isFinite(targetLat) || !Number.isFinite(targetLng)) {
+            map.setCenter({ lat: targetLat, lng: targetLng });
+            map.setZoom(targetZoom);
+            return;
+        }
+
+        const startLat = startCenter.lat();
+        const startLng = startCenter.lng();
+
+        // Calculate Euclidean distance (approximate degrees)
+        const dist = Math.sqrt(Math.pow(startLat - targetLat, 2) + Math.pow(startLng - targetLng, 2));
+
+        // --- STRATEGY SELECTION ---
+
+        // Threshold: 0.1 degrees is roughly 11km. 
+        // If > 0.5 degrees (~55km), it's "Long Distance".
+        const isLongDistance = dist > 0.5;
+
+        if (isLongDistance) {
+            // --- LONG DISTANCE: SATELLITE JUMP ---
+            // 1. Zoom out high
+            // 2. Instant jump (invisible at high altitude)
+            // 3. Zoom in
+
+            const highAltitudeZoom = 6; // Zoom level where continents are visible
+
+            // Phase 1: Zoom Out logic
+            const zoomOutDuration = 1200;
+            const startTime = performance.now();
+            const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+            const animateJump = (currentTime: number) => {
+                const elapsed = currentTime - startTime;
+
+                if (elapsed < zoomOutDuration) {
+                    // Zooming Out
+                    const progress = elapsed / zoomOutDuration;
+                    const eased = easeOutCubic(progress);
+                    const currentZoom = startZoom + (highAltitudeZoom - startZoom) * eased;
+
+                    map.moveCamera({ center: { lat: startLat, lng: startLng }, zoom: currentZoom });
+                    animationFrameRef.current = requestAnimationFrame(animateJump);
+                } else if (elapsed < zoomOutDuration + 200) {
+                    // Holding at high altitude (brief pause to stabilize) & swichting center
+                    map.moveCamera({ center: { lat: targetLat, lng: targetLng }, zoom: highAltitudeZoom });
+                    animationFrameRef.current = requestAnimationFrame(animateJump);
+                } else {
+                    // Phase 2: Zoom In logic (handled by a second loop or continuation)
+                    // We restart a new animation from High Altitude -> Target
+                    cancelAnimationFrame(animationFrameRef.current!);
+
+                    const zoomInDuration = 1500;
+                    const zoomInStart = performance.now();
+
+                    const animateDive = (now: number) => {
+                        const diveElapsed = now - zoomInStart;
+                        const diveProgress = Math.min(diveElapsed / zoomInDuration, 1);
+                        const diveEased = easeOutCubic(diveProgress); // Decelerate into target
+
+                        const diveZoom = highAltitudeZoom + (targetZoom - highAltitudeZoom) * diveEased;
+
+                        map.moveCamera({ center: { lat: targetLat, lng: targetLng }, zoom: diveZoom });
+
+                        if (diveProgress < 1) {
+                            animationFrameRef.current = requestAnimationFrame(animateDive);
+                        } else {
+                            animationFrameRef.current = null;
+                        }
+                    };
+                    animationFrameRef.current = requestAnimationFrame(animateDive);
+                }
+            };
+            animationFrameRef.current = requestAnimationFrame(animateJump);
+
+        } else {
+            // --- SHORT DISTANCE: SMOOTH PAN ---
+            // Direct interpolation with minor zoom adjustments
+
+            const duration = 1500;
+            const startTime = performance.now();
+            const easeInOutQuad = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+            const animatePan = (currentTime: number) => {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = easeInOutQuad(progress);
+
+                const currentLat = startLat + (targetLat - startLat) * eased;
+                const currentLng = startLng + (targetLng - startLng) * eased;
+
+                // Slight zoom out for effect
+                const arcFactor = 4 * progress * (1 - progress);
+                const zoomDip = 1.0; // Mild dip
+                const currentZoom = startZoom + (targetZoom - startZoom) * eased - (zoomDip * arcFactor);
+
+                map.moveCamera({ center: { lat: currentLat, lng: currentLng }, zoom: currentZoom });
+
+                if (progress < 1) {
+                    animationFrameRef.current = requestAnimationFrame(animatePan);
+                } else {
+                    animationFrameRef.current = null;
+                }
+            };
+            animationFrameRef.current = requestAnimationFrame(animatePan);
+        }
+
+    }, [map]);
+
+    // Cleanup
+    useEffect(() => {
+        return () => {
+            if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        };
+    }, []);
+
+    // Auto-fly to new incidents
+    useEffect(() => {
+        if (!map) return;
+
+        const latestWithLoc = [...incidents]
+            .reverse()
+            .find(i => i.location?.lat && i.location?.lng && i.status !== "PENDING");
+
+        if (latestWithLoc && latestWithLoc.location.lat && latestWithLoc.location.lng) {
+            if (lastAutoFlyId.current !== latestWithLoc.id) {
+                smoothFlyTo(latestWithLoc.location.lat, latestWithLoc.location.lng, 15);
+                lastAutoFlyId.current = latestWithLoc.id;
+            }
+        }
+    }, [incidents, map, smoothFlyTo]);
+
+    // Fly to focused incident
+    useEffect(() => {
+        if (!map || !focusedIncidentId) return;
+
+        const incident = incidents.find(i => i.id === focusedIncidentId);
+        if (incident?.location?.lat && incident?.location?.lng) {
+            smoothFlyTo(incident.location.lat, incident.location.lng, 17);
+        }
+    }, [focusedIncidentId, incidents, map, smoothFlyTo]);
+
+    return null;
+}
+
+
+// Marker content component
+function MarkerContent({ incident }: { incident: Incident }) {
     const isAnalyzing = incident.status === "PENDING";
     const isSignalLost = incident.manual_trace_required;
     const color = PRIORITY_COLORS[incident.priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.DEFAULT;
 
-    // Using Tailwind arbitrary values in the HTML string for the icon
-    // For Signal Lost, we show a Drone/Asset node style
     if (isSignalLost) {
-        const html = `
-            <div class="relative flex items-center justify-center w-full h-full">
-                <!-- Warning Ripple -->
-                <div class="absolute inset-[-12px] border border-amber-500/30 rounded-full animate-ping-slow"></div>
-                <div class="absolute inset-[-6px] border border-amber-500/50 rounded-full animate-pulse" style="border-style: dashed;"></div>
-                
-                <!-- Unconfirmed/Question Mark Icon -->
-                <div class="w-8 h-8 flex items-center justify-center bg-zinc-950/90 border border-amber-500 text-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)] z-20 backdrop-blur-sm">
-                    <span class="font-mono font-bold text-lg">?</span>
+        return (
+            <div className="relative flex items-center justify-center w-10 h-10">
+                {/* Warning Ripple */}
+                <div className="absolute inset-[-12px] border border-amber-500/30 rounded-full animate-ping-slow"></div>
+                <div className="absolute inset-[-6px] border border-amber-500/50 rounded-full animate-pulse border-dashed"></div>
+
+                {/* Unconfirmed/Question Mark Icon */}
+                <div className="w-8 h-8 flex items-center justify-center bg-zinc-950/90 border border-amber-500 text-amber-500 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.5)] z-20 backdrop-blur-sm">
+                    <span className="font-mono font-bold text-lg">?</span>
                 </div>
-                
-                <!-- Label -->
-                 <span class="absolute -bottom-6 text-[9px] font-mono font-bold text-amber-500 bg-black/90 px-1.5 py-0.5 rounded border border-amber-500/30 whitespace-nowrap z-20 uppercase tracking-wider">
+
+                {/* Label */}
+                <span className="absolute -bottom-6 text-[9px] font-mono font-bold text-amber-500 bg-black/90 px-1.5 py-0.5 rounded border border-amber-500/30 whitespace-nowrap z-20 uppercase tracking-wider">
                     UNCONFIRMED
                 </span>
             </div>
-        `;
-        return divIcon({
-            className: "custom-marker-group group",
-            html: html,
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-            popupAnchor: [0, -20],
-        });
+        );
     }
 
-    const html = `
-        <div class="relative flex items-center justify-center w-full h-full">
-            ${/* Outer Ring / Ripple */ ""}
-            ${isAnalyzing ? `
-                <div class="absolute inset-0 border border-cyan-500/50 rounded-full animate-radar-spin" style="border-style: dashed;"></div>
-                <div class="absolute inset-0 bg-cyan-500/10 rounded-full animate-pulse"></div>
-            ` : incident.priority === "CRITICAL" ? `
-                 <div class="absolute inset-[-12px] bg-red-500/20 rounded-full animate-ping-slow"></div>
-                 <div class="absolute inset-[-6px] border border-red-500/50 rounded-full animate-pulse-fast"></div>
-            ` : ""}
-            
-            ${/* Core Dot */ ""}
-            <div class="w-3 h-3 rounded-full border border-white/20 shadow-[0_0_10px_rgba(0,0,0,0.5)] z-10 transition-transform duration-300 hover:scale-125"
-                 style="background-color: ${color}; box-shadow: 0 0 12px ${color};">
-            </div>
-            
-            ${/* Label (Optional - small ID) */ ""}
-            <span class="absolute -bottom-5 text-[8px] font-mono font-bold text-white/70 bg-black/60 px-1 rounded backdrop-blur-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                ${incident.id}
+    return (
+        <div className="relative flex items-center justify-center w-10 h-10 group">
+            {/* Outer Ring / Ripple */}
+            {isAnalyzing ? (
+                <>
+                    <div className="absolute inset-0 border border-cyan-500/50 rounded-full animate-radar-spin border-dashed"></div>
+                    <div className="absolute inset-0 bg-cyan-500/10 rounded-full animate-pulse"></div>
+                </>
+            ) : incident.priority === "CRITICAL" ? (
+                <>
+                    <div className="absolute inset-[-12px] bg-red-500/20 rounded-full animate-ping-slow"></div>
+                    <div className="absolute inset-[-6px] border border-red-500/50 rounded-full animate-pulse-fast"></div>
+                </>
+            ) : null}
+
+            {/* Core Dot */}
+            <div
+                className="w-3 h-3 rounded-full border border-white/20 shadow-[0_0_10px_rgba(0,0,0,0.5)] z-10 transition-transform duration-300 hover:scale-125"
+                style={{ backgroundColor: color, boxShadow: `0 0 12px ${color}` }}
+            />
+
+            {/* Label (Optional - small ID) */}
+            <span className="absolute -bottom-5 text-[8px] font-mono font-bold text-white/70 bg-black/60 px-1 rounded backdrop-blur-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                {incident.id}
             </span>
         </div>
-    `;
+    );
+}
 
-    return divIcon({
-        className: "custom-marker-group group", // 'group' allows hover targeting
-        html: html,
-        iconSize: [40, 40], // Larger container to fit ripples
-        iconAnchor: [20, 20],
-        popupAnchor: [0, -20],
-    });
-};
-
-function TacticalMarker({ incident }: { incident: Incident }) {
-    const icon = useMemo(() => createPulseIcon(incident), [incident.status, incident.priority, incident.id]);
+function TacticalMarker({ incident, onSelect, isSelected }: {
+    incident: Incident;
+    onSelect: (id: string | null) => void;
+    isSelected: boolean;
+}) {
+    const handleClick = useCallback(() => {
+        onSelect(isSelected ? null : incident.id);
+    }, [incident.id, isSelected, onSelect]);
 
     return (
-        <Marker position={[incident.location.lat || 0, incident.location.lng || 0]} icon={icon}>
-            <Popup>
-                <div className="p-1 min-w-[200px]">
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-zinc-700/50 pb-2 mb-2">
-                        <span className="font-mono text-xs text-zinc-400">{incident.id}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${incident.priority === "CRITICAL" ? "bg-red-500/10 border-red-500/30 text-red-500" :
-                            incident.priority === "HIGH" ? "bg-orange-500/10 border-orange-500/30 text-orange-500" :
-                                "bg-zinc-800 border-zinc-700 text-zinc-400"
-                            }`}>
-                            {incident.priority || "UNCATEGORIZED"}
-                        </span>
-                    </div>
+        <>
+            <AdvancedMarker
+                position={{ lat: incident.location.lat || 0, lng: incident.location.lng || 0 }}
+                onClick={handleClick}
+            >
+                <MarkerContent incident={incident} />
+            </AdvancedMarker>
 
-                    {/* Address / Location Target */}
-                    <div className="mb-2 pb-2 border-b border-zinc-700/50">
-                        <div className="flex items-start gap-1.5 text-zinc-300">
-                            <div className="mt-0.5 text-emerald-500">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                            </div>
-                            <span className="text-[10px] font-mono leading-tight">
-                                {incident.location?.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
+            {isSelected && (
+                <InfoWindow
+                    position={{ lat: incident.location.lat || 0, lng: incident.location.lng || 0 }}
+                    onCloseClick={() => onSelect(null)}
+                    pixelOffset={[0, -25]}
+                >
+                    <div className="p-1 min-w-[200px] bg-zinc-950 text-white">
+                        {/* Header */}
+                        <div className="flex items-center justify-between border-b border-zinc-700/50 pb-2 mb-2">
+                            <span className="font-mono text-xs text-zinc-400">{incident.id}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${incident.priority === "CRITICAL" ? "bg-red-500/10 border-red-500/30 text-red-500" :
+                                incident.priority === "HIGH" ? "bg-orange-500/10 border-orange-500/30 text-orange-500" :
+                                    "bg-zinc-800 border-zinc-700 text-zinc-400"
+                                }`}>
+                                {incident.priority || "UNCATEGORIZED"}
                             </span>
                         </div>
-                    </div>
 
-                    {/* Content */}
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-zinc-500">TYPE</span>
-                            <span className="text-zinc-200 font-medium text-right">{incident.type}</span>
+                        {/* Address / Location Target */}
+                        <div className="mb-2 pb-2 border-b border-zinc-700/50">
+                            <div className="flex items-start gap-1.5 text-zinc-300">
+                                <div className="mt-0.5 text-emerald-500">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                </div>
+                                <span className="text-[10px] font-mono leading-tight">
+                                    {incident.location?.address || `${incident.location.lat.toFixed(4)}, ${incident.location.lng.toFixed(4)}`}
+                                </span>
+                            </div>
                         </div>
-                        {incident.category && (
+
+                        {/* Content */}
+                        <div className="space-y-1.5">
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-zinc-500">CAT</span>
-                                <span className="text-zinc-200 font-medium text-right">{incident.category}</span>
+                                <span className="text-zinc-500">TYPE</span>
+                                <span className="text-zinc-200 font-medium text-right">{incident.type}</span>
                             </div>
-                        )}
-                        {incident.people_safety && (
+                            {incident.category && (
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-zinc-500">CAT</span>
+                                    <span className="text-zinc-200 font-medium text-right">{incident.category}</span>
+                                </div>
+                            )}
+                            {incident.people_safety && (
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-zinc-500">SAFETY</span>
+                                    <span className={`font-medium text-right ${incident.people_safety.includes("DANGER") ? "text-red-500 font-bold" : "text-zinc-200"}`}>
+                                        {incident.people_safety}
+                                    </span>
+                                </div>
+                            )}
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-zinc-500">SAFETY</span>
-                                <span className={`font-medium text-right ${incident.people_safety.includes("DANGER") ? "text-red-500 font-bold" : "text-zinc-200"}`}>
-                                    {incident.people_safety}
-                                </span>
-                            </div>
-                        )}
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-zinc-500">STATUS</span>
-                            <div className="flex items-center gap-1.5">
-                                {incident.status === 'PENDING' && (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                                )}
-                                <span className={`font-mono font-medium ${incident.status === "PENDING" ? "text-cyan-400" : "text-emerald-400"
-                                    }`}>
-                                    {incident.status === "PENDING" ? "ANALYZING" : "TRIAGED"}
-                                </span>
+                                <span className="text-zinc-500">STATUS</span>
+                                <div className="flex items-center gap-1.5">
+                                    {incident.status === 'PENDING' && (
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                                    )}
+                                    <span className={`font-mono font-medium ${incident.status === "PENDING" ? "text-cyan-400" : "text-emerald-400"
+                                        }`}>
+                                        {incident.status === "PENDING" ? "ANALYZING" : "TRIAGED"}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </Popup>
-        </Marker >
+                </InfoWindow>
+            )}
+        </>
     );
 }
 
 export function TacticalMap({ className }: { className?: string }) {
     const { incidents } = useSimulationStore();
     const [isMounted, setIsMounted] = useState(false);
+    const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
     if (!isMounted) {
         return (
@@ -193,9 +427,17 @@ export function TacticalMap({ className }: { className?: string }) {
     }
 
     const firstWithLocation = incidents.find(i => i.location && i.location.lat !== null && i.location.lng !== null);
-    const center: [number, number] = firstWithLocation
-        ? [firstWithLocation.location.lat, firstWithLocation.location.lng]
-        : [40.7128, -74.0060];
+    const center = firstWithLocation
+        ? { lat: firstWithLocation.location.lat, lng: firstWithLocation.location.lng }
+        : { lat: 40.7128, lng: -74.0060 };
+
+    const visibleIncidents = incidents.filter(incident =>
+        incident.location &&
+        incident.location.lat !== 0 &&
+        incident.location.lng !== 0 &&
+        !incident.manual_trace_required &&
+        incident.status !== "PENDING"
+    );
 
     return (
         <div className={`relative h-full w-full rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-2xl ${className}`}>
@@ -222,42 +464,28 @@ export function TacticalMap({ className }: { className?: string }) {
             </div>
 
             {/* 2. Map Component */}
-            <MapContainer
-                center={center}
-                zoom={13}
-                zoomControl={false} // Custom zoom control could be added
-                scrollWheelZoom={true}
-                minZoom={3}
-                maxZoom={18}
-                maxBounds={[[-90, -180], [90, 180]]}
-                maxBoundsViscosity={1.0}
-                className="h-full w-full z-0 bg-[#09090b]"
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                />
+            <APIProvider apiKey={apiKey}>
+                <Map
+                    defaultCenter={center}
+                    defaultZoom={13}
+                    mapId="5bb7b00777bfa38ac4774120"
+                    disableDefaultUI={true}
+                    className="h-full w-full"
+                    gestureHandling="greedy"
+                    colorScheme="DARK"
+                >
+                    <MapController incidents={incidents} />
 
-                <MapControllerInner incidents={incidents} />
-
-                {/* Auto-focus Effect */}
-                <MapFocusHandler />
-
-                {incidents
-                    .filter(incident =>
-                        incident.location &&
-                        incident.location.lat !== 0 &&
-                        incident.location.lng !== 0 &&
-                        !incident.manual_trace_required &&
-                        incident.status !== "PENDING" // HIDE PENDING nodes until analyzing/triaged
-                    )
-                    .map((incident) => (
-                        <div key={incident.id}>
-                            <TacticalMarker incident={incident} />
-
-                        </div>
+                    {visibleIncidents.map((incident) => (
+                        <TacticalMarker
+                            key={incident.id}
+                            incident={incident}
+                            onSelect={setSelectedIncidentId}
+                            isSelected={selectedIncidentId === incident.id}
+                        />
                     ))}
-            </MapContainer>
+                </Map>
+            </APIProvider>
 
             {/* 3. Radar Sweep Effect (The "Cool" Factor) */}
             <div className="absolute inset-0 pointer-events-none z-[300] overflow-hidden opacity-30">
