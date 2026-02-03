@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, InfoWindow, useMap, MapMouseEvent } from "@vis.gl/react-google-maps";
 import { useSimulationStore } from "@/lib/store";
 import { type Incident } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
@@ -51,10 +51,9 @@ function MapController({ incidents }: { incidents: Incident[] }) {
         const targetHeading = 0; // Reset heading North
 
         // Flight Arc Configuration
-        // We zoom out significantly to show the Globe curvature if the distance is far
         const dist = Math.sqrt(Math.pow(startLat - targetLat, 2) + Math.pow(startLng - targetLng, 2));
-        const isLongHaul = dist > 1.0; // > ~100km
-        const minFlightZoom = isLongHaul ? 4 : Math.min(startZoom, targetZoom) - 2;
+        const isLongHaul = dist > 1.0;
+        const minFlightZoom = isLongHaul ? 4.5 : Math.min(startZoom, targetZoom) - 2;
 
         const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
@@ -68,10 +67,6 @@ function MapController({ incidents }: { incidents: Incident[] }) {
             const currentLng = startLng + (targetLng - startLng) * eased;
 
             // Interpolate Zoom with Parabolic Arc
-            // We want to be at minFlightZoom when progress is 0.5
-            // Bezier curve for zoom? Or simple parabola.
-            // Let's use a weighted interpolation.
-            // Zoom goes: Start -> Min -> Target
             let currentZoom;
             if (progress < 0.5) {
                 // Outward phase: Start -> Min
@@ -84,7 +79,6 @@ function MapController({ incidents }: { incidents: Incident[] }) {
             }
 
             // Interpolate Tilt: Top-down (0) -> Angled (45)
-            // We flatten tilt during flight, add tilt on arrival
             let currentTilt;
             if (progress < 0.7) {
                 // Flatten to look straight down during travel
@@ -156,9 +150,14 @@ function MarkerContent({ incident }: { incident: Incident }) {
     const isSignalLost = incident.manual_trace_required;
     const color = PRIORITY_COLORS[incident.priority as keyof typeof PRIORITY_COLORS] || PRIORITY_COLORS.DEFAULT;
 
+    // We enhance brightness here to counteract the parent map filter
+    const markerStyle = {
+        filter: "brightness(1.5) contrast(1.2)"
+    };
+
     if (isSignalLost) {
         return (
-            <div className="relative flex items-center justify-center w-10 h-10">
+            <div className="relative flex items-center justify-center w-10 h-10" style={markerStyle}>
                 {/* Warning Ripple */}
                 <div className="absolute inset-[-12px] border border-amber-500/30 rounded-full animate-ping-slow"></div>
                 <div className="absolute inset-[-6px] border border-amber-500/50 rounded-full animate-pulse border-dashed"></div>
@@ -177,7 +176,7 @@ function MarkerContent({ incident }: { incident: Incident }) {
     }
 
     return (
-        <div className="relative flex items-center justify-center w-10 h-10 group">
+        <div className="relative flex items-center justify-center w-10 h-10 group" style={markerStyle}>
             {/* Outer Ring / Ripple */}
             {isAnalyzing ? (
                 <>
@@ -210,7 +209,7 @@ function TacticalMarker({ incident, onSelect, isSelected }: {
     onSelect: (id: string | null) => void;
     isSelected: boolean;
 }) {
-    const handleClick = useCallback(() => {
+    const handleClick = useCallback((e: google.maps.MapMouseEvent | any) => {
         onSelect(isSelected ? null : incident.id);
     }, [incident.id, isSelected, onSelect]);
 
@@ -304,6 +303,10 @@ export function TacticalMap({ className }: { className?: string }) {
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
+    const handleMapClick = (ev: MapMouseEvent) => {
+        setSelectedIncidentId(null);
+    };
+
     if (!isMounted) {
         return (
             <div className={`flex flex-col items-center justify-center bg-zinc-950 border border-zinc-800 rounded-lg ${className}`}>
@@ -355,45 +358,53 @@ export function TacticalMap({ className }: { className?: string }) {
                 </div>
             </div>
 
-            {/* 2. Map Component - ENABLE VECTOR + TILT */}
-            <APIProvider apiKey={apiKey}>
-                <Map
-                    defaultCenter={center}
-                    defaultZoom={13}
-                    mapId="5bb7b00777bfa38ac4774120"
-                    disableDefaultUI={true}
-                    className="h-full w-full"
-                    gestureHandling="greedy"
-                    colorScheme="DARK"
-                    renderingType="VECTOR"
-                    defaultTilt={45}
-                    defaultHeading={0}
-                >
-                    <MapController incidents={incidents} />
+            {/* 2. Map Component */}
+            {/* Added style filter to force darkness regardless of map tiles */}
+            <div className="h-full w-full" style={{ filter: "brightness(0.7) contrast(1.2) grayscale(0.3)" }}>
+                <APIProvider apiKey={apiKey}>
+                    <Map
+                        defaultCenter={center}
+                        defaultZoom={13}
+                        minZoom={4}
+                        mapId="5bb7b00777bfa38ac4774120"
+                        disableDefaultUI={true}
+                        clickableIcons={false}
+                        className="h-full w-full"
+                        gestureHandling="greedy"
+                        colorScheme="DARK"
+                        renderingType="VECTOR"
+                        defaultTilt={45}
+                        defaultHeading={0}
+                        onClick={handleMapClick}
+                    >
+                        <MapController incidents={incidents} />
 
-                    {visibleIncidents.map((incident) => (
-                        <TacticalMarker
-                            key={incident.id}
-                            incident={incident}
-                            onSelect={setSelectedIncidentId}
-                            isSelected={selectedIncidentId === incident.id}
-                        />
-                    ))}
-                </Map>
-            </APIProvider>
+                        {visibleIncidents.map((incident) => (
+                            <TacticalMarker
+                                key={incident.id}
+                                incident={incident}
+                                onSelect={setSelectedIncidentId}
+                                isSelected={selectedIncidentId === incident.id}
+                            />
+                        ))}
+                    </Map>
+                </APIProvider>
+            </div>
 
-            {/* 3. Radar Sweep Effect (The "Cool" Factor) */}
+            {/* REMOVED pure black overlay - rely on CSS filter for darkness to avoid layering issues */}
+
+            {/* 4. Radar Sweep Effect (The "Cool" Factor) */}
             <div className="absolute inset-0 pointer-events-none z-[300] overflow-hidden opacity-30">
                 <div className="absolute inset-[-50%] w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_340deg,rgba(16,185,129,0.1)_360deg)] animate-radar-spin origin-center"></div>
             </div>
 
-            {/* 4. CRT/Scanline Overlay */}
+            {/* 5. CRT/Scanline Overlay */}
             <div className="absolute inset-0 pointer-events-none z-[350] bg-[linear-gradient(rgba(18,18,18,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%] opacity-20"></div>
 
-            {/* 5. Vignette */}
+            {/* 6. Vignette */}
             <div className="absolute inset-0 pointer-events-none z-[350] bg-[radial-gradient(circle,transparent_60%,rgba(9,9,11,0.8)_100%)]"></div>
 
-            {/* 6. Corner HUD Elements */}
+            {/* 7. Corner HUD Elements */}
             <svg className="absolute top-2 left-2 w-16 h-16 z-[360] opacity-50 pointer-events-none text-emerald-500/40" viewBox="0 0 100 100">
                 <path d="M 2 30 L 2 2 L 30 2" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
