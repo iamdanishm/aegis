@@ -114,38 +114,30 @@ function MapController({ incidents }: { incidents: Incident[] }) {
         };
     }, []);
 
-    // 1. Auto-fly to new COMPLETED incidents (Legacy behavior, lower priority)
+    // 1. Auto-fly to new COMPLETED incidents (Legacy behavior) -> DISABLED per user request
+    // The map should ONLY move if:
+    // A) The system is actively analyzing something (Spotlight)
+    // B) The user manually clicked something (Focus)
+    // We do NOT want it jumping around just because a new pin dropped.
+
+
+    // 2. Fly to SPOTLIGHT (Analyzing) incident - ONLY when spotlightId CHANGES
+    const lastSpotlightFlyId = useRef<string | null>(null);
     useEffect(() => {
-        if (!map) return;
-
-        // Only look for TRIAGED or COMPLETED items for this "passive" update
-        const latestWithLoc = [...incidents]
-            .reverse()
-            .find(i => i.location?.lat && i.location?.lng && i.status !== "PENDING" && i.status !== "ANALYZING");
-
-        if (latestWithLoc && latestWithLoc.location.lat && latestWithLoc.location.lng) {
-            if (lastAutoFlyId.current !== latestWithLoc.id) {
-                // prevent conflict (only move if we haven't recently gathered focus)
-                // But for now, we just let it happen unless spotlight overrides it
-                // We don't fly if spotlight is active to avoid fighting
-                if (!spotlightId) {
-                    cinematicFlyTo(latestWithLoc.location.lat, latestWithLoc.location.lng, 17);
-                    lastAutoFlyId.current = latestWithLoc.id;
-                }
-            }
+        if (!map || !spotlightId) {
+            lastSpotlightFlyId.current = null; // Reset when spotlight clears
+            return;
         }
-    }, [incidents, map, cinematicFlyTo, spotlightId]);
 
-    // 2. Fly to SPOTLIGHT (Analyzing) incident - High Priority
-    useEffect(() => {
-        if (!map || !spotlightId) return;
+        // Only fly if this is a NEW spotlight (not a re-render from incidents changing)
+        if (lastSpotlightFlyId.current === spotlightId) return;
 
         const incident = incidents.find(i => i.id === spotlightId);
         if (incident?.location?.lat && incident?.location?.lng) {
-            // Force fly to the spotlight incident
             cinematicFlyTo(incident.location.lat, incident.location.lng, 18);
+            lastSpotlightFlyId.current = spotlightId;
         }
-    }, [spotlightId, incidents, map, cinematicFlyTo]);
+    }, [spotlightId, map, cinematicFlyTo, incidents]);
 
     // 3. Fly to Manual FOCUSED incident - Highest Priority (User Override)
     useEffect(() => {

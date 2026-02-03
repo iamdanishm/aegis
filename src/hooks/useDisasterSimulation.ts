@@ -163,46 +163,22 @@ export function useDisasterSimulation() {
             // Take only as many as we have slots for
             const batch = pendingIncidents.slice(0, availableSlots);
 
-            // Priority heuristics for Hero selection (highest expected risk)
-            const getPriorityScore = (incident: typeof batch[0]): number => {
-                let score = 0;
-                const desc = (incident.mission_context || incident.raw_input || "").toLowerCase();
-                const input = (incident.raw_input || "").toLowerCase();
+            // SPOTLIGHT LOCK: Check if spotlight is already occupied
+            const currentSpotlightId = useSimulationStore.getState().spotlightId;
 
-                // Infer type if missing (for scoring purposes only)
-                const isVideo = incident.type === "VIDEO" || input.endsWith(".mp4") || input.endsWith(".mov") || input.endsWith(".avi");
-                const isAudio = incident.type === "AUDIO" || input.endsWith(".mp3") || input.endsWith(".wav");
-                const isCommand = incident.type === "COMMAND";
+            let heroIncident = null;
+            let heroId: string | null = null;
 
-                // Type-based priority
-                if (isCommand) score += 100; // Voice of God Override (Instant Hero)
-                if (isVideo) score += 20; // Visual confirmation = higher priority
-                if (isAudio) score += 10;
-
-                // Keyword-based priority
-                if (desc.includes("trapped")) score += 30;
-                if (desc.includes("collapse")) score += 25;
-                if (desc.includes("fire")) score += 25;
-                if (desc.includes("drowning")) score += 25;
-                if (desc.includes("electr")) score += 20;
-                if (desc.includes("elderly")) score += 15;
-                if (desc.includes("children") || desc.includes("child")) score += 15;
-                if (desc.includes("critical")) score += 20;
-                if (desc.includes("emergency")) score += 10;
-
-                return score;
-            };
-
-            // Sort batch by priority score (descending) and select Hero
-            const sortedBatch = [...batch].sort((a, b) => getPriorityScore(b) - getPriorityScore(a));
-            const heroIncident = sortedBatch[0];
-            const heroId = heroIncident.id;
-            const batchIds = batch.map(i => i.id);
-
-            // Set spotlight (Hero) state
-            useSimulationStore.getState().setSpotlightId(heroId);
-
-            addLog(`[${time}s] [WORKER POOL] Processing ${batch.length} signal(s). Hero: ${heroId}. Active: ${activeWorkerCountRef.current + batch.length}/${MAX_CONCURRENT_WORKERS}`);
+            if (!currentSpotlightId) {
+                // Spotlight is FREE -> First incident becomes the Hero (FIFO)
+                heroIncident = batch[0];
+                heroId = heroIncident.id;
+                useSimulationStore.getState().setSpotlightId(heroId);
+                addLog(`[${time}s] [WORKER POOL] Processing ${batch.length} signal(s). Hero: ${heroId}. Active: ${activeWorkerCountRef.current + batch.length}/${MAX_CONCURRENT_WORKERS}`);
+            } else {
+                // Spotlight is BUSY -> ALL new events go to background (no stealing)
+                addLog(`[${time}s] [WORKER POOL] Processing ${batch.length} signal(s) in BACKGROUND. (Spotlight held by: ${currentSpotlightId})`);
+            }
 
             // Claim worker slots and track processing IDs BEFORE async work
             activeWorkerCountRef.current += batch.length;
@@ -225,6 +201,7 @@ export function useDisasterSimulation() {
                 // ============================================================
                 // REAL-TIME STREAMING AI: Parallel processing with Hero focus
                 // ============================================================
+                // If we have a hero, everyone else is background. If no hero, EVERYONE is background.
                 const backgroundIncidents = batch.filter(inc => inc.id !== heroId);
 
                 // Process background incidents (non-streaming, parallel)
@@ -279,207 +256,209 @@ export function useDisasterSimulation() {
                 // Start background processing (don't await - run in parallel)
                 const backgroundPromises = backgroundIncidents.map(inc => processBackgroundIncident(inc));
 
-                // Process Hero with full streaming and UI updates
-                throttledSetRawThinkingProcess("");
+                // Process Hero with full streaming and UI updates (ONLY IF WE HAVE A HERO)
+                if (heroIncident) {
+                    throttledSetRawThinkingProcess("");
 
-                // 1. Setup AbortController for Interruption
-                const controller = new AbortController();
-                useSimulationStore.getState().setActiveAbortController(controller);
+                    // 1. Setup AbortController for Interruption
+                    const controller = new AbortController();
+                    useSimulationStore.getState().setActiveAbortController(controller);
 
-                const readerRef = { current: null as ReadableStreamDefaultReader<Uint8Array> | null };
+                    const readerRef = { current: null as ReadableStreamDefaultReader<Uint8Array> | null };
 
-                // Declare outside try block so it's accessible in catch for abort handling
-                let latestResult = { ...heroIncident, status: "ANALYZING" };
-
-                try {
-                    const response = await fetch("/api/coordinate/stream", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ ...heroIncident, status: "ANALYZING" }),
-                        signal: controller.signal // <--- Bind Signal
-                    });
-
-                    if (!response.body) throw new Error("No response body");
-
-                    const reader = response.body.getReader();
-                    readerRef.current = reader;
-                    const decoder = new TextDecoder();
-                    let fullThinking = "";
-                    let buffer = "";
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        buffer += decoder.decode(value, { stream: true });
-                        const lines = buffer.split("\n");
-                        buffer = lines.pop() || "";
-
-                        for (const line of lines) {
-                            if (!line.trim()) continue;
-                            try {
-                                const event = JSON.parse(line);
-                                switch (event.type) {
-                                    case "thought":
-                                        fullThinking += event.content;
-                                        throttledSetRawThinkingProcess(fullThinking);
-                                        break;
-                                    case "agent_info":
-                                        useSimulationStore.getState().setActiveAgent(event.agent);
-                                        useSimulationStore.getState().setActiveModel(event.model);
-                                        break;
-                                    case "result":
-                                        // Merge the result data
-                                        latestResult = { ...latestResult, ...event.data };
-                                        break;
-                                    case "audit_log":
-                                        useSimulationStore.getState().addAgentAuditLog(event.entry);
-                                        addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
-                                        break;
-                                    case "error":
-                                        console.error("Stream Error:", event.message);
-                                        latestResult = {
-                                            ...latestResult,
-                                            reasoning_trace: `Analysis Error: ${event.message}. Falling back to manual triage protocol.`
-                                        };
-                                        break;
-                                }
-                            } catch (e) { /* ignore */ }
-                        }
-                    }
-
-                    // Normal Completion
-                    // Preserve result for potential override merge
-                    partialResultRef.current = latestResult;
-                    updateIncident(heroIncident.id, {
-                        ...latestResult,
-                        status: "TRIAGED"
-                    });
-                    addLog(`[${time}s] [COORDINATOR] 🎯 Hero finalized: ${heroIncident.id}`);
-
-                } catch (error: any) {
-                    if (error.name === "AbortError" || error.message?.includes("aborted")) {
-                        // Preserve partial analysis before proceeding (for Issue 2 fix)
-                        partialResultRef.current = latestResult;
-
-                        // Check if this was a Context Injection (Same Incident) or Preemption (Different Incident)
-                        const freshState = useSimulationStore.getState().incidents.find(i => i.id === heroIncident.id);
-
-                        if (freshState?.transcript_context) {
-                            // SAME INCIDENT OVERRIDE -> Proceed to "Deferred Context Injection" block below
-                            addLog(`[${time}s] [COORDINATOR] ⚠️ Analysis Interrupted for Context Injection...`);
-
-                            // Show "VOICE INTERPRETER ACTIVE" in ReasoningLog
-                            useSimulationStore.getState().setIsVoiceProcessing(true);
-                        } else {
-                            // PREEMPTION -> Different incident took priority
-                            addLog(`[${time}s] [COORDINATOR] ⏸️ Analysis SUSPENDED for Higher Priority Event.`);
-
-                            // Reset this event to PENDING so it gets picked up again later
-                            updateIncident(heroIncident.id, { status: "PENDING" });
-
-                            // EXIT here so we don't run the deferred block
-                            return;
-                        }
-                    } else {
-                        throw error; // Re-throw real errors to be caught by outer catch
-                    }
-                } finally {
-                    useSimulationStore.getState().setActiveAbortController(null);
-                }
-
-                // ============================================================
-                // DEFERRED CONTEXT INJECTION (Runs even if Aborted!)
-                // ============================================================
-                const freshIncident = useSimulationStore.getState().incidents.find(i => i.id === heroIncident.id);
-                if (freshIncident?.transcript_context) {
-                    addLog(`[${time}s] [COORDINATOR] 🗣️ User context detected. Running Override Pass...`);
-                    throttledSetRawThinkingProcess(""); // Reset for new pass
+                    // Declare outside try block so it's accessible in catch for abort handling
+                    let latestResult = { ...heroIncident, status: "ANALYZING" };
 
                     try {
-                        // Run a SECOND analysis pass with the user's context
-                        const overrideResponse = await fetch("/api/coordinate/stream", {
+                        const response = await fetch("/api/coordinate/stream", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                ...freshIncident,
-                                // FORCE ORIGINAL TYPE to ensure Coordinator routes correctly
-                                type: heroIncident.type,
-                                command_intent: freshIncident.transcript_context,
-                                mission_context: freshIncident.mission_context + `\n[USER CONTEXT]: ${freshIncident.transcript_context}`,
-                                status: "ANALYZING"
-                            }),
+                            body: JSON.stringify({ ...heroIncident, status: "ANALYZING" }),
+                            signal: controller.signal // <--- Bind Signal
                         });
 
-                        if (overrideResponse.body) {
-                            const overrideReader = overrideResponse.body.getReader();
-                            const overrideDecoder = new TextDecoder();
-                            let overrideBuffer = "";
-                            let overrideResult: any = {};
-                            let overrideThinking = "";
+                        if (!response.body) throw new Error("No response body");
 
-                            while (true) {
-                                const { done, value } = await overrideReader.read();
-                                if (done) break;
+                        const reader = response.body.getReader();
+                        readerRef.current = reader;
+                        const decoder = new TextDecoder();
+                        let fullThinking = "";
+                        let buffer = "";
 
-                                overrideBuffer += overrideDecoder.decode(value, { stream: true });
-                                const lines = overrideBuffer.split("\n");
-                                overrideBuffer = lines.pop() || "";
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
 
-                                for (const line of lines) {
-                                    if (!line.trim()) continue;
-                                    try {
-                                        const event = JSON.parse(line);
-                                        switch (event.type) {
-                                            case "thought":
-                                                overrideThinking += event.content;
-                                                throttledSetRawThinkingProcess(overrideThinking);
-                                                break;
-                                            case "agent_info":
-                                                useSimulationStore.getState().setActiveAgent(event.agent);
-                                                useSimulationStore.getState().setActiveModel(event.model);
-                                                break;
-                                            case "result":
-                                                overrideResult = event.data;
-                                                break;
-                                            case "audit_log":
-                                                useSimulationStore.getState().addAgentAuditLog(event.entry);
-                                                addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
-                                                break;
-                                        }
-                                    } catch (e) { /* ignore */ }
-                                }
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split("\n");
+                            buffer = lines.pop() || "";
+
+                            for (const line of lines) {
+                                if (!line.trim()) continue;
+                                try {
+                                    const event = JSON.parse(line);
+                                    switch (event.type) {
+                                        case "thought":
+                                            fullThinking += event.content;
+                                            throttledSetRawThinkingProcess(fullThinking);
+                                            break;
+                                        case "agent_info":
+                                            useSimulationStore.getState().setActiveAgent(event.agent);
+                                            useSimulationStore.getState().setActiveModel(event.model);
+                                            break;
+                                        case "result":
+                                            // Merge the result data
+                                            latestResult = { ...latestResult, ...event.data };
+                                            break;
+                                        case "audit_log":
+                                            useSimulationStore.getState().addAgentAuditLog(event.entry);
+                                            addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
+                                            break;
+                                        case "error":
+                                            console.error("Stream Error:", event.message);
+                                            latestResult = {
+                                                ...latestResult,
+                                                reasoning_trace: `Analysis Error: ${event.message}. Falling back to manual triage protocol.`
+                                            };
+                                            break;
+                                    }
+                                } catch (e) { /* ignore */ }
                             }
-
-                            // MERGE override result with original analysis
-                            const preservedAnalysis = partialResultRef.current;
-                            const cleanOriginalTrace = (preservedAnalysis?.reasoning_trace || freshIncident.reasoning_trace || "").trim();
-
-                            // Merge Assets - use preserved data if available
-                            const mergedAssets = Array.from(new Set([
-                                ...(preservedAnalysis?.assigned_assets || freshIncident.assigned_assets || []),
-                                ...(overrideResult.assigned_assets || []).filter((a: string) => a !== "SYSTEM_UPDATE")
-                            ]));
-
-                            updateIncident(heroIncident.id, {
-                                ...preservedAnalysis,
-                                ...freshIncident,
-                                ...overrideResult,
-                                reasoning_trace: `${cleanOriginalTrace}\n\n[COMMAND OVERRIDE]: ${overrideResult.command_intent || "Executed"}\n${overrideResult.reasoning_trace || ""}`.trim(),
-                                assigned_assets: mergedAssets,
-                                status: overrideResult.status || "TRIAGED",
-                                transcript_context: undefined
-                            });
-                            addLog(`[${time}s] [COORDINATOR] ✓ Override merged for ${heroIncident.id}`);
                         }
-                    } catch (overrideError: any) {
-                        console.error("Override pass failed:", overrideError);
-                        addLog(`[${time}s] [COORDINATOR] ⚠️ Override pass failed: ${overrideError.message}`);
-                        updateIncident(heroIncident.id, { status: "TRIAGED" });
+
+                        // Normal Completion
+                        // Preserve result for potential override merge
+                        partialResultRef.current = latestResult;
+                        updateIncident(heroIncident.id, {
+                            ...latestResult,
+                            status: "TRIAGED"
+                        });
+                        addLog(`[${time}s] [COORDINATOR] 🎯 Hero finalized: ${heroIncident.id}`);
+
+                    } catch (error: any) {
+                        if (error.name === "AbortError" || error.message?.includes("aborted")) {
+                            // Preserve partial analysis before proceeding (for Issue 2 fix)
+                            partialResultRef.current = latestResult;
+
+                            // Check if this was a Context Injection (Same Incident) or Preemption (Different Incident)
+                            const freshState = useSimulationStore.getState().incidents.find(i => i.id === heroIncident.id);
+
+                            if (freshState?.transcript_context) {
+                                // SAME INCIDENT OVERRIDE -> Proceed to "Deferred Context Injection" block below
+                                addLog(`[${time}s] [COORDINATOR] ⚠️ Analysis Interrupted for Context Injection...`);
+
+                                // Show "VOICE INTERPRETER ACTIVE" in ReasoningLog
+                                useSimulationStore.getState().setIsVoiceProcessing(true);
+                            } else {
+                                // PREEMPTION -> Different incident took priority
+                                addLog(`[${time}s] [COORDINATOR] ⏸️ Analysis SUSPENDED for Higher Priority Event.`);
+
+                                // Reset this event to PENDING so it gets picked up again later
+                                updateIncident(heroIncident.id, { status: "PENDING" });
+
+                                // EXIT here so we don't run the deferred block
+                                return;
+                            }
+                        } else {
+                            throw error; // Re-throw real errors to be caught by outer catch
+                        }
                     } finally {
-                        throttledSetRawThinkingProcess(null);
-                        useSimulationStore.getState().setIsVoiceProcessing(false);
-                        partialResultRef.current = null;
+                        useSimulationStore.getState().setActiveAbortController(null);
+                    }
+
+                    // ============================================================
+                    // DEFERRED CONTEXT INJECTION (Runs even if Aborted!)
+                    // ============================================================
+                    const freshIncident = useSimulationStore.getState().incidents.find(i => i.id === heroIncident.id);
+                    if (freshIncident?.transcript_context) {
+                        addLog(`[${time}s] [COORDINATOR] 🗣️ User context detected. Running Override Pass...`);
+                        throttledSetRawThinkingProcess(""); // Reset for new pass
+
+                        try {
+                            // Run a SECOND analysis pass with the user's context
+                            const overrideResponse = await fetch("/api/coordinate/stream", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    ...freshIncident,
+                                    // FORCE ORIGINAL TYPE to ensure Coordinator routes correctly
+                                    type: heroIncident.type,
+                                    command_intent: freshIncident.transcript_context,
+                                    mission_context: freshIncident.mission_context + `\n[USER CONTEXT]: ${freshIncident.transcript_context}`,
+                                    status: "ANALYZING"
+                                }),
+                            });
+
+                            if (overrideResponse.body) {
+                                const overrideReader = overrideResponse.body.getReader();
+                                const overrideDecoder = new TextDecoder();
+                                let overrideBuffer = "";
+                                let overrideResult: any = {};
+                                let overrideThinking = "";
+
+                                while (true) {
+                                    const { done, value } = await overrideReader.read();
+                                    if (done) break;
+
+                                    overrideBuffer += overrideDecoder.decode(value, { stream: true });
+                                    const lines = overrideBuffer.split("\n");
+                                    overrideBuffer = lines.pop() || "";
+
+                                    for (const line of lines) {
+                                        if (!line.trim()) continue;
+                                        try {
+                                            const event = JSON.parse(line);
+                                            switch (event.type) {
+                                                case "thought":
+                                                    overrideThinking += event.content;
+                                                    throttledSetRawThinkingProcess(overrideThinking);
+                                                    break;
+                                                case "agent_info":
+                                                    useSimulationStore.getState().setActiveAgent(event.agent);
+                                                    useSimulationStore.getState().setActiveModel(event.model);
+                                                    break;
+                                                case "result":
+                                                    overrideResult = event.data;
+                                                    break;
+                                                case "audit_log":
+                                                    useSimulationStore.getState().addAgentAuditLog(event.entry);
+                                                    addLog(`[${time}s] [${event.entry.agent}] ${event.entry.action}`);
+                                                    break;
+                                            }
+                                        } catch (e) { /* ignore */ }
+                                    }
+                                }
+
+                                // MERGE override result with original analysis
+                                const preservedAnalysis = partialResultRef.current;
+                                const cleanOriginalTrace = (preservedAnalysis?.reasoning_trace || freshIncident.reasoning_trace || "").trim();
+
+                                // Merge Assets - use preserved data if available
+                                const mergedAssets = Array.from(new Set([
+                                    ...(preservedAnalysis?.assigned_assets || freshIncident.assigned_assets || []),
+                                    ...(overrideResult.assigned_assets || []).filter((a: string) => a !== "SYSTEM_UPDATE")
+                                ]));
+
+                                updateIncident(heroIncident.id, {
+                                    ...preservedAnalysis,
+                                    ...freshIncident,
+                                    ...overrideResult,
+                                    reasoning_trace: `${cleanOriginalTrace}\n\n[COMMAND OVERRIDE]: ${overrideResult.command_intent || "Executed"}\n${overrideResult.reasoning_trace || ""}`.trim(),
+                                    assigned_assets: mergedAssets,
+                                    status: overrideResult.status || "TRIAGED",
+                                    transcript_context: undefined
+                                });
+                                addLog(`[${time}s] [COORDINATOR] ✓ Override merged for ${heroIncident.id}`);
+                            }
+                        } catch (overrideError: any) {
+                            console.error("Override pass failed:", overrideError);
+                            addLog(`[${time}s] [COORDINATOR] ⚠️ Override pass failed: ${overrideError.message}`);
+                            updateIncident(heroIncident.id, { status: "TRIAGED" });
+                        } finally {
+                            throttledSetRawThinkingProcess(null);
+                            useSimulationStore.getState().setIsVoiceProcessing(false);
+                            partialResultRef.current = null;
+                        }
                     }
                 }
 
