@@ -40,6 +40,9 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
                 reasoning_trace: context
                     ? `[System Commander Override] Primary analysis redirected to: ${context}. Technical validation confirmed sector integrity.`
                     : "Basement flooding, elderly trapped (Translated from Spanish)",
+                display_reasoning: context
+                    ? ["Commander override processed", "Tactical models recalibrated", "Sector integrity confirmed"]
+                    : ["Basement flooding confirmed", "Elderly civilian trapped", "Spanish distress call - URGENT"],
                 detected_language: context ? "English" : "Spanish",
                 status: "TRIAGED",
                 thought_signature: generateThoughtSignature(context || "Basement flooding", "CRITICAL", Date.now())
@@ -59,6 +62,11 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
                 priority: "CRITICAL",
                 category: "COLLAPSE",
                 reasoning_trace: "Building collapse, multiple people trapped (Translated from Hindi)",
+                display_reasoning: [
+                    "Building collapse detected",
+                    "Multiple civilians trapped",
+                    "Hindi distress - IMMEDIATE"
+                ],
                 detected_language: "Hindi",
                 status: "TRIAGED",
                 thought_signature: generateThoughtSignature("Building collapse, multiple people trapped (Translated from Hindi)", "CRITICAL", Date.now())
@@ -78,6 +86,11 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
             priority: "MEDIUM",
             category: "General",
             reasoning_trace: "No specific mock data found. Defaulting to standard triage. [MOCK]",
+            display_reasoning: [
+                "Standard triage protocol",
+                "No specific threat detected",
+                "Monitoring active"
+            ],
             status: "TRIAGED",
             thought_signature: generateThoughtSignature("No specific mock data found. Defaulting to standard triage.", "MEDIUM", Date.now())
         };

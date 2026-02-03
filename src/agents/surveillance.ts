@@ -37,6 +37,11 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                 priority: "CRITICAL",
                 category: "SURVEILLANCE",
                 reasoning_trace: `[System Commander Override] Visual sensors recalibrated to target: ${context}. Structural assessment confirmed life-safety risk.`,
+                display_reasoning: [
+                    "Commander override active",
+                    "Visual sensors recalibrated",
+                    "Life-safety risk confirmed"
+                ],
                 status: "TRIAGED"
             };
         }
@@ -52,6 +57,11 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
             flood_level: "Low",
             structural_damage: "Minimal",
             reasoning_trace: "No specific mock data found. Analysis based on standard detection algorithms. [MOCK]",
+            display_reasoning: [
+                "Low flood level detected",
+                "Minimal structural damage",
+                "Standard monitoring active"
+            ],
             category: "General Surveillance",
             priority: "LOW",
             status: "TRIAGED"
@@ -109,6 +119,15 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
     5. Provide a REASONING TRACE.
     6. LOGISTICS HANDOFF: Decide if this incident requires physical asset deployment.
 
+    7. DISPLAY REASONING (HUD BULLETS):
+       - Generate exactly 3 short, telegraphic bullet points for tactical HUD display.
+       - Each bullet: MAX 10 words. Military-style. No filler words.
+       - Focus on: Damage assessment, threat level, recommended action.
+       - Example:
+         • "Structural collapse - 40% building integrity"
+         • "2 civilians visible on rooftop"
+         • "Flood level rising - EVAC priority"
+
     USER OVERRIDE PROTOCOL (CRITICAL):
     - If the "Description/Alert" input contains specific location instructions (e.g. "[USER CONTEXT]: Confirm location is X"), you MUST:
       1. Verify this claim using Visuals + Google Search.
@@ -161,6 +180,11 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                             structural_damage: { type: Type.STRING },
                             people_count_estimate: { type: Type.NUMBER },
                             reasoning_trace: { type: Type.STRING },
+                            display_reasoning: {
+                                type: Type.ARRAY,
+                                items: { type: Type.STRING },
+                                description: "3 short telegraphic bullet points for HUD. Max 10 words each."
+                            },
                             extracted_address: { type: Type.STRING, description: "Identified visual landmark address or null." },
                             extracted_lat: { type: Type.NUMBER },
                             extracted_lng: { type: Type.NUMBER },
@@ -180,7 +204,7 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                             is_authentic: { type: Type.BOOLEAN },
                             priority: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] }
                         },
-                        required: ["flood_level", "structural_damage", "reasoning_trace", "category", "requires_logistics", "is_authentic", "priority"],
+                        required: ["flood_level", "structural_damage", "reasoning_trace", "display_reasoning", "category", "requires_logistics", "is_authentic", "priority"],
                     },
                     tools: [{ googleSearch: {} }],
                     thinkingConfig: {
@@ -271,6 +295,7 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
                 flood_level: result.flood_level,
                 structural_damage: result.structural_damage,
                 reasoning_trace: result.reasoning_trace,
+                display_reasoning: result.display_reasoning || [], // HUD-ready bullet points
                 category: result.category || "Surveillance Alert",
                 priority: calculatedPriority as any,
                 status: "TRIAGED",

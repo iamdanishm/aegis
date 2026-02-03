@@ -311,70 +311,111 @@ export function SignalFeed({ className }: { className?: string }) {
                                                     </div>
                                                 )}
 
-                                                {incident.reasoning_trace && (() => {
-                                                    // Extract both traces upfront for proper conditional rendering
+                                                {/* TACTICAL ANALYSIS: Prioritize clean display_reasoning bullets */}
+                                                {(incident.display_reasoning && incident.display_reasoning.length > 0) ? (
+                                                    <div className="bg-gradient-to-b from-zinc-900 to-black border border-white/5 rounded p-3">
+                                                        <h4 className="text-[10px] font-bold text-cyan-600/80 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                            <Cpu className="w-3 h-3" />
+                                                            Tactical Analysis
+                                                        </h4>
+                                                        <ul className="space-y-1.5 pl-1 border-l-2 border-cyan-900/30">
+                                                            {incident.display_reasoning.map((bullet, idx) => (
+                                                                <li key={idx} className="text-[11px] text-zinc-300 font-mono flex items-start gap-2">
+                                                                    <span className="text-cyan-500 mt-0.5">•</span>
+                                                                    <span>{bullet}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+
+                                                        {/* Collapsible Full Analysis (the verbose reasoning_trace) */}
+                                                        {incident.reasoning_trace && incident.reasoning_trace.length > 50 && (
+                                                            <div className="mt-3 pt-2 border-t border-white/5">
+                                                                <button
+                                                                    onClick={(e) => toggleAnalysis(incident.id, e)}
+                                                                    className="w-full py-1 flex items-center justify-center gap-2 text-[9px] font-bold text-zinc-500 hover:text-cyan-400 transition-colors uppercase tracking-wider bg-black/20 hover:bg-black/40 rounded"
+                                                                >
+                                                                    {analysisExpandedMap[incident.id] ? (
+                                                                        <>Hide Full Analysis <ChevronUp className="w-3 h-3" /></>
+                                                                    ) : (
+                                                                        <>View Full Analysis <ChevronDown className="w-3 h-3" /></>
+                                                                    )}
+                                                                </button>
+                                                                <AnimatePresence>
+                                                                    {analysisExpandedMap[incident.id] && (
+                                                                        <motion.div
+                                                                            initial={{ height: 0, opacity: 0 }}
+                                                                            animate={{ height: "auto", opacity: 1 }}
+                                                                            exit={{ height: 0, opacity: 0 }}
+                                                                            transition={{ duration: 0.3 }}
+                                                                            className="overflow-hidden"
+                                                                        >
+                                                                            <div className="mt-2 text-[10px] leading-relaxed text-zinc-500 font-mono whitespace-pre-wrap bg-black/30 rounded p-2 max-h-40 overflow-y-auto">
+                                                                                {incident.reasoning_trace.split('[COMMAND OVERRIDE]:')[0].trim()}
+                                                                            </div>
+                                                                        </motion.div>
+                                                                    )}
+                                                                </AnimatePresence>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : incident.reasoning_trace && (() => {
+                                                    // Fallback: If no display_reasoning, use the old verbose trace
                                                     const technicalTrace = (incident.reasoning_trace || "").split('[COMMAND OVERRIDE]:')[0].trim();
-                                                    const hasOverride = incident.reasoning_trace.includes('[COMMAND OVERRIDE]:');
                                                     const hasTechnicalContent = technicalTrace.length > 0;
 
-                                                    return (
-                                                        <div className="space-y-2">
-                                                            {/* Primary Analysis - only show if there's actual technical content */}
-                                                            {hasTechnicalContent && (
-                                                                <div className="bg-gradient-to-b from-zinc-900 to-black border border-white/5 rounded p-3">
-                                                                    <h4 className="text-[10px] font-bold text-cyan-600/80 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                                        <Cpu className="w-3 h-3" />
-                                                                        Tactical Analysis
-                                                                    </h4>
-                                                                    <div className="relative">
-                                                                        <motion.div
-                                                                            initial={false}
-                                                                            animate={{
-                                                                                height: analysisExpandedMap[incident.id] ? "auto" : "4.5rem",
-                                                                                maskImage: analysisExpandedMap[incident.id]
-                                                                                    ? "linear-gradient(to bottom, black 100%, black 100%)"
-                                                                                    : "linear-gradient(to bottom, black 60%, transparent 100%)",
-                                                                            }}
-                                                                            transition={{ duration: 0.4, ease: "easeInOut" }}
-                                                                            className="text-[11px] leading-relaxed text-zinc-400 font-mono whitespace-pre-wrap pl-1 border-l-2 border-cyan-900/30 overflow-hidden relative"
-                                                                        >
-                                                                            {technicalTrace}
-                                                                        </motion.div>
+                                                    return hasTechnicalContent ? (
+                                                        <div className="bg-gradient-to-b from-zinc-900 to-black border border-white/5 rounded p-3">
+                                                            <h4 className="text-[10px] font-bold text-cyan-600/80 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                <Cpu className="w-3 h-3" />
+                                                                Tactical Analysis
+                                                            </h4>
+                                                            <div className="relative">
+                                                                <motion.div
+                                                                    initial={false}
+                                                                    animate={{
+                                                                        height: analysisExpandedMap[incident.id] ? "auto" : "4.5rem",
+                                                                        maskImage: analysisExpandedMap[incident.id]
+                                                                            ? "linear-gradient(to bottom, black 100%, black 100%)"
+                                                                            : "linear-gradient(to bottom, black 60%, transparent 100%)",
+                                                                    }}
+                                                                    transition={{ duration: 0.4, ease: "easeInOut" }}
+                                                                    className="text-[11px] leading-relaxed text-zinc-400 font-mono whitespace-pre-wrap pl-1 border-l-2 border-cyan-900/30 overflow-hidden relative"
+                                                                >
+                                                                    {technicalTrace}
+                                                                </motion.div>
 
-                                                                        {technicalTrace.length > 200 && (
-                                                                            <button
-                                                                                onClick={(e) => toggleAnalysis(incident.id, e)}
-                                                                                className="w-full mt-2 py-1 flex items-center justify-center gap-2 text-[10px] font-bold text-cyan-500/70 hover:text-cyan-400 transition-colors uppercase tracking-wider bg-black/20 hover:bg-black/40 rounded"
-                                                                            >
-                                                                                {analysisExpandedMap[incident.id] ? (
-                                                                                    <>Show Less <ChevronUp className="w-3 h-3" /></>
-                                                                                ) : (
-                                                                                    <>Read Analysis <ChevronDown className="w-3 h-3" /></>
-                                                                                )}
-                                                                            </button>
+                                                                {technicalTrace.length > 200 && (
+                                                                    <button
+                                                                        onClick={(e) => toggleAnalysis(incident.id, e)}
+                                                                        className="w-full mt-2 py-1 flex items-center justify-center gap-2 text-[10px] font-bold text-cyan-500/70 hover:text-cyan-400 transition-colors uppercase tracking-wider bg-black/20 hover:bg-black/40 rounded"
+                                                                    >
+                                                                        {analysisExpandedMap[incident.id] ? (
+                                                                            <>Show Less <ChevronUp className="w-3 h-3" /></>
+                                                                        ) : (
+                                                                            <>Read Analysis <ChevronDown className="w-3 h-3" /></>
                                                                         )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Secondary Analysis: Voice Override - always show when override exists */}
-                                                            {hasOverride && (
-                                                                <div className="bg-gradient-to-r from-amber-950/20 to-black border border-amber-500/30 rounded p-3 relative overflow-hidden animate-in fade-in slide-in-from-top-2 duration-500">
-                                                                    <div className="absolute top-0 right-0 p-1 opacity-10">
-                                                                        <Activity className="w-8 h-8 text-amber-500" />
-                                                                    </div>
-                                                                    <h4 className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                                        <Mic className="w-3 h-3" />
-                                                                        Override Analysis
-                                                                    </h4>
-                                                                    <div className="text-[11px] leading-relaxed text-zinc-300 font-mono pl-1 border-l-2 border-amber-500/50">
-                                                                        {incident.reasoning_trace.split('[COMMAND OVERRIDE]:')[1].trim()}
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    );
+                                                    ) : null;
                                                 })()}
+
+                                                {/* Voice Override Section - separate from main analysis */}
+                                                {incident.reasoning_trace?.includes('[COMMAND OVERRIDE]:') && (
+                                                    <div className="bg-gradient-to-r from-amber-950/20 to-black border border-amber-500/30 rounded p-3 relative overflow-hidden animate-in fade-in slide-in-from-top-2 duration-500">
+                                                        <div className="absolute top-0 right-0 p-1 opacity-10">
+                                                            <Activity className="w-8 h-8 text-amber-500" />
+                                                        </div>
+                                                        <h4 className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                            <Mic className="w-3 h-3" />
+                                                            Override Analysis
+                                                        </h4>
+                                                        <div className="text-[11px] leading-relaxed text-zinc-300 font-mono pl-1 border-l-2 border-amber-500/50">
+                                                            {incident.reasoning_trace.split('[COMMAND OVERRIDE]:')[1].trim()}
+                                                        </div>
+                                                    </div>
+                                                )}
 
                                                 {/* 5. ASSET ALLOCATION */}
                                                 {incident.assigned_assets && incident.assigned_assets.length > 0 && (
