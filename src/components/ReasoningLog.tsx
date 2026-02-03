@@ -127,7 +127,7 @@ export function ReasoningLog({ className }: { className?: string }) {
         logs,
         incidents,
         isGeneratingReport,
-        isSimulationComplete,
+        isMissionComplete,
         rawThinkingProcess,
         activeAgent,
         activeModel,
@@ -271,7 +271,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                         &gt; Compiling chain of custody...
                     </div>
                 </div>
-            ) : ((latestTriaged || pendingIncident) && !isSimulationComplete) || isVoiceProcessing ? (
+            ) : ((latestTriaged || pendingIncident) && !isMissionComplete) || isVoiceProcessing ? (
                 <div className="mt-auto border-t border-zinc-800 pt-3">
                     <div className="flex items-center gap-2 mb-2">
                         <div className="flex items-center gap-1">
@@ -465,7 +465,7 @@ export function ReasoningLog({ className }: { className?: string }) {
                     </div>
                     <div className="bg-zinc-900/30 p-3 rounded-lg border border-zinc-800/50 min-h-[100px] flex items-center justify-center">
                         <div className="text-zinc-600 text-[10px] font-mono italic">
-                            {isSimulationComplete ? "[MISSION COMPLETE] All Signals Processed" : "[SYSTEM STANDBY] Awaiting Signal..."}
+                            {isMissionComplete ? "[MISSION COMPLETE] All Signals Processed" : "[SYSTEM STANDBY] Awaiting Signal..."}
                         </div>
                     </div>
                 </div>

@@ -45,7 +45,7 @@ Incident Data:
 - Raw Input: ${incident.raw_input.substring(0, 200)}${incident.raw_input.length > 200 ? "..." : ""}
 - Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
 - Current Status: ${incident.status}
-- Description: ${incident.description_for_simulation || "N/A"}
+- Description: ${incident.mission_context || "N/A"}
 ${incident.transcript_context ? `\n[ACTION REQUIRED]: User has provided context: "${incident.transcript_context}". Route based on this NEW context.` : ""}
 
 Determine the target agent for this incident.`;
@@ -125,10 +125,7 @@ function getFallbackRouting(incident: Incident): RoutingDecision {
  */
 async function parseDirective(incident: Incident): Promise<{ command_intent: string, reasoning_trace: string }> {
     if (!process.env.GEMINI_API_KEY) {
-        return {
-            command_intent: incident.transcript_context || "Directive processed via Aegis Protocol.",
-            reasoning_trace: "System Commander directive received and authenticated. Priority re-alignment initiated. [MOCK]"
-        };
+        throw new Error("GEMINI_API_KEY missing. Cannot parse directive.");
     }
 
     const prompt = `
@@ -175,7 +172,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
     if (incident.transcript_context) {
         directiveResult = await parseDirective(incident);
         // Inject context into description so specialists see it
-        incident.description_for_simulation = `[USER CONTEXT]: ${incident.transcript_context}\n${incident.description_for_simulation || ""}`;
+        incident.mission_context = `[USER CONTEXT]: ${incident.transcript_context}\n${incident.mission_context || ""}`;
     }
 
     try {
@@ -183,27 +180,14 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
         if (incident.type === "COMMAND") {
             routingTrace += "🚨 COMMAND OVERRIDE RECEIVED. Processing Voice Command... ";
 
-            // SIMULATION FALLBACK: If no API key, use mock command result
             if (!process.env.GEMINI_API_KEY) {
-                console.log(`[COORDINATOR] [SIMULATION MODE] Processing mock command override for ${incident.id}`);
-                const result = {
-                    command_intent: incident.command_intent || "EXECUTE ALL PENDING ORDERS",
-                    reasoning_trace: "Voice of God command received and authenticated via Aegis Command Protocol. [MOCK]"
-                };
-                processedIncident = {
-                    ...processedIncident,
-                    ...result,
-                    priority: "CRITICAL",
-                    category: "COMMAND_OVERRIDE",
-                    status: "RESOLVED",
-                    location: incident.location || processedIncident.location // Keep existing or use provided
-                };
-                routingTrace += `Intent Parsed (MOCK): ${result.command_intent}`;
+                console.error("[COORDINATOR] GEMINI_API_KEY missing. Cannot process Voice Command.");
+                processedIncident.coordinator_trace = routingTrace + " ERROR: API Key Missing.";
             } else {
                 // Voice of God Logic: Check if we have pre-transcribed text or need to process audio
                 let contextString = "Global Override";
-                if (incident.description_for_simulation) {
-                    contextString = `Context: ${incident.description_for_simulation}`;
+                if (incident.mission_context) {
+                    contextString = `Context: ${incident.mission_context}`;
                 }
 
                 // INJECT USER CONTEXT FROM MERGE
@@ -406,7 +390,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                 const surveillanceResult = await analyzeSurveillance({
                     ...processedIncident,
                     type: "VIDEO",  // Hint to agent
-                    description_for_simulation: `[COMMAND]: ${intent}\n${processedIncident.description_for_simulation || ""}`
+                    mission_context: `[COMMAND]: ${intent}\n${processedIncident.mission_context || ""}`
                 });
 
                 const existingTrace = processedIncident.reasoning_trace || "";
@@ -424,7 +408,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                 const triageResult = await triageIncident({
                     ...processedIncident,
                     type: "AUDIO",  // Hint to agent
-                    description_for_simulation: `[COMMAND]: ${intent}\n${processedIncident.description_for_simulation || ""}`
+                    mission_context: `[COMMAND]: ${intent}\n${processedIncident.mission_context || ""}`
                 });
 
                 const existingTrace = processedIncident.reasoning_trace || "";

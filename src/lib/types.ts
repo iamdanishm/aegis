@@ -21,7 +21,7 @@ export interface Incident {
     structural_damage?: string; // Surveillance
     flood_level?: string;      // Surveillance
     assigned_assets?: string[]; // Logistics
-    description_for_simulation?: string; // Narrative context
+    mission_context?: string; // Narrative context
     people_safety?: string;
     extracted_address?: string; // Triage
     extracted_lat?: number;

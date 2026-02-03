@@ -5,7 +5,7 @@ import { MODELS } from "@/lib/constants";
 import { type Incident } from "@/lib/types";
 import { ThinkingLevel, Type } from "@google/genai";
 
-import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+
 import { generateContentStreamWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
 
 // Helper for cinematic typing effect
@@ -13,45 +13,13 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // The Logistics Agent routes assets and checks for road closures using Grounding.
 export async function manageLogistics(incident: Incident, onThought?: (thought: string) => void): Promise<Partial<Incident>> {
-    // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {
-        console.log(`[LOGISTICS] [SIMULATION MODE] Returning mock response for ${incident.id}`);
-        const mock = MOCK_RESPONSES[incident.id];
-
-        if (onThought) {
-            const mockThoughts = [
-                "Checking asset availability...",
-                "Querying road closure database...",
-                "Calculating optimal route...",
-                "Drafting deployment orders..."
-            ];
-            for (const t of mockThoughts) {
-                onThought(t + "\n");
-                await new Promise(r => setTimeout(r, 500));
-            }
-        }
-
-        if (mock && mock.assigned_assets) {
-            return {
-                assigned_assets: mock.assigned_assets,
-                reasoning_trace: mock.reasoning_trace || "Optimized logistics path identified. [MOCK]",
-                required_asset: mock.required_asset,
-                grounding_queries: mock.grounding_queries
-            };
-        }
-        // ... (Keep existing fallbacks)
-        // Command fallback
-        if (incident.type === "COMMAND") {
-            return {
-                assigned_assets: ["ALL UNITS"],
-                reasoning_trace: `COMMAND EXECUTED: ${incident.command_intent || "Global Reroute"}. System state updated. [MOCK]`
-            };
-        }
-
-        // Generic fallback
+        console.error("[LOGISTICS] GEMINI_API_KEY missing. Cannot proceed with Live Logistics.");
         return {
-            assigned_assets: ["Standard Response Team"],
-            reasoning_trace: "Logistics analysis complete. Deploying standard response team to location. [MOCK]"
+            assigned_assets: ["NO_ACTION"],
+            reasoning_trace: "System Offline: No AI API Key provided. Logistics analysis unavailable.",
+            verification_status: "UNVERIFIED",
+            priority: "LOW"
         };
     }
     console.log(`[LOGISTICS] Routing assets for incident ${incident.id} at ${incident.location.address || incident.location.lat + "," + incident.location.lng}...`);
@@ -154,7 +122,7 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
     Location: ${incident.location.address || "Unknown (Lat: " + incident.location.lat + ", Lng: " + incident.location.lng + ")"}
     Category: ${incident.category || "General Emergency"}
     Priority: ${incident.priority || "UNKNOWN"}
-    Description/Context: ${incident.description_for_simulation || "N/A"}
+    Description/Context: ${incident.mission_context || "N/A"}
     
     SPECIAL INSTRUCTIONS:
     ${instruction}

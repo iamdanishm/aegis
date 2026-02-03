@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 
 import { generateContentStreamWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
-import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+
 
 /**
  * Generate a real SHA-256 cryptographic signature for audit trail.
@@ -16,83 +16,15 @@ import { MOCK_RESPONSES } from "@/simulation/mock_responses";
  */
 
 export async function triageIncident(incident: Incident, onThought?: (thought: string) => void): Promise<Partial<Incident>> {
-    // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {
-        console.log(`[TRIAGE] [SIMULATION MODE] Returning mock response for ${incident.id}`);
-
-        const context = incident.transcript_context || "";
-
-        // MOCK TRANSLATION/OVERRIDE LOGIC
-        if (context || incident.raw_input.includes("Ayuda")) {
-            if (onThought) {
-                const mockThoughts = context
-                    ? [`Processing Commander directive: "${context}"...`, "Recalibrating tactical models...", "Validating report against ground truth..."]
-                    : ["Simulating thought: Detecting Spanish...", "Simulating thought: Identifying keywords 'Ayuda'...", "Simulating thought: Assigning CRITICAL priority for potential distress."];
-                for (const t of mockThoughts) {
-                    onThought(t + "\n");
-                    await new Promise(r => setTimeout(r, 500)); // Fake delay
-                }
-            }
-            return {
-                id: incident.id,
-                priority: "CRITICAL",
-                category: "FLOOD",
-                reasoning_trace: context
-                    ? `[System Commander Override] Primary analysis redirected to: ${context}. Technical validation confirmed sector integrity.`
-                    : "Basement flooding, elderly trapped (Translated from Spanish)",
-                display_reasoning: context
-                    ? ["Commander override processed", "Tactical models recalibrated", "Sector integrity confirmed"]
-                    : ["Basement flooding confirmed", "Elderly civilian trapped", "Spanish distress call - URGENT"],
-                detected_language: context ? "English" : "Spanish",
-                status: "TRIAGED",
-                thought_signature: generateThoughtSignature(context || "Basement flooding", "CRITICAL", Date.now())
-            };
-        }
-
-        if (incident.raw_input.includes("Building gir")) {
-            if (onThought) {
-                const mockThoughts = ["Simulating thought: Recognizing 'Building gir' as 'Building collapse'...", "Simulating thought: Identifying multiple people trapped...", "Simulating thought: Assigning CRITICAL priority."];
-                for (const t of mockThoughts) {
-                    onThought(t + "\n");
-                    await new Promise(r => setTimeout(r, 500)); // Fake delay
-                }
-            }
-            return {
-                id: incident.id,
-                priority: "CRITICAL",
-                category: "COLLAPSE",
-                reasoning_trace: "Building collapse, multiple people trapped (Translated from Hindi)",
-                display_reasoning: [
-                    "Building collapse detected",
-                    "Multiple civilians trapped",
-                    "Hindi distress - IMMEDIATE"
-                ],
-                detected_language: "Hindi",
-                status: "TRIAGED",
-                thought_signature: generateThoughtSignature("Building collapse, multiple people trapped (Translated from Hindi)", "CRITICAL", Date.now())
-            };
-        }
-
-        const mock = MOCK_RESPONSES[incident.id];
-        if (mock) {
-            return {
-                ...mock,
-                status: "TRIAGED",
-                thought_signature: generateThoughtSignature(mock.reasoning_trace || "Mock triage", mock.priority || "MEDIUM", Date.now())
-            };
-        }
-        // Generic fallback if specific ID not found in mocks
+        console.error("[TRIAGE] GEMINI_API_KEY missing. Cannot proceed with Live Analysis.");
         return {
             priority: "MEDIUM",
-            category: "General",
-            reasoning_trace: "No specific mock data found. Defaulting to standard triage. [MOCK]",
-            display_reasoning: [
-                "Standard triage protocol",
-                "No specific threat detected",
-                "Monitoring active"
-            ],
+            category: "SYSTEM_OFFLINE",
+            reasoning_trace: "System Offline: No AI API Key provided. Live analysis unavailable.",
+            display_reasoning: ["System Offline", "API Key Missing", "Check Config"],
             status: "TRIAGED",
-            thought_signature: generateThoughtSignature("No specific mock data found. Defaulting to standard triage.", "MEDIUM", Date.now())
+            thought_signature: "ERROR-NO-KEY"
         };
     }
     console.log(`[TRIAGE] ========================================`);
@@ -190,7 +122,7 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
     ID: ${incident.id}
     Type: ${incident.type || "UNKNOWN (analyze raw input)"}
     Signal Metadata (GPS/Cell Tower): ${JSON.stringify(signalMetadata)}
-    Description/Alert: ${incident.description_for_simulation || "N/A"}
+    Description/Alert: ${incident.mission_context || "N/A"}
     Raw Input: ${incident.raw_input.substring(0, 500)}...
     
     Analyze this signal and provide your assessment in JSON format.

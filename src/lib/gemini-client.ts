@@ -4,7 +4,7 @@ import crypto from "crypto";
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-    console.warn("[GEMINI-CLIENT] Warning: GEMINI_API_KEY environment variable is missing. The system will run in SIMULATION MODE with mocked AI responses.");
+    console.warn("[GEMINI-CLIENT] Warning: GEMINI_API_KEY environment variable is missing. The system will run in TEST MODE with mocked AI responses.");
 }
 
 const globalForAi = globalThis as unknown as { gemini: GoogleGenAI };
@@ -17,7 +17,7 @@ if (globalForAi.gemini) {
 } else {
     console.log("[GEMINI-CLIENT] Initializing NEW Gemini client instance 🚀");
     aiInstance = new GoogleGenAI({
-        apiKey: apiKey || "dummy-key-for-simulation",
+        apiKey: apiKey || "dummy-key-for-test",
     });
     // In development, save the instance to globalThis to prevent re-initialization on hot reload
     if (process.env.NODE_ENV !== "production") {

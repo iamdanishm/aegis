@@ -242,7 +242,7 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
                 status: "ANALYZING",
                 priority: "CRITICAL",
                 is_override: true,
-                description_for_simulation: "Processing Voice Command...",
+                mission_context: "Processing Voice Command...",
                 transcript_context: textInput || "Processing Audio Command..."
             };
             addIncident(newIncident);
@@ -269,7 +269,7 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
                 type: "COMMAND",
                 raw_input: finalRawInput, // This goes to AI for processing
                 command_intent: textInput,
-                description_for_simulation: textInput || "Audio Verification Required",
+                mission_context: textInput || "Audio Verification Required",
                 location: (baseIncident as any).location || { lat: 0, lng: 0, address: "COMMAND_CENTER" },
                 transcript_context: textInput || "Audio Command - Pending Transcription" // <-- NEW
             };

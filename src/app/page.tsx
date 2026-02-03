@@ -3,7 +3,7 @@
 import { useDisasterSimulation } from "@/hooks/useDisasterSimulation";
 import { SignalFeed } from "@/components/SignalFeed";
 import { ReasoningLog } from "@/components/ReasoningLog";
-import { CommanderControls } from "@/components/CommanderControls";
+
 import { useSimulationStore } from "@/lib/store";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, FileText, Download, Trash2 } from "lucide-react";
@@ -61,14 +61,14 @@ export default function ResponderView() {
     notification,
     setIsMicAuthorized,
     showNotification,
-    isSimulationComplete,
+    isMissionComplete,
     logs,
     setReport,
     report,
     setIsReportOpen,
     isGeneratingReport,
     setIsGeneratingReport,
-    setIsSimulationComplete
+    setIsMissionComplete
   } = useSimulationStore();
 
   const handleGenerateReport = async () => {
@@ -153,7 +153,7 @@ export default function ResponderView() {
 
             {/* REPORT GENERATION BUTTON - Only visible when complete */}
             <AnimatePresence>
-              {isSimulationComplete && (
+              {isMissionComplete && (
                 <motion.button
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -192,7 +192,7 @@ export default function ResponderView() {
                 if (!isPlaying) {
                   // Starting new simulation - reset state
                   setReport(null);
-                  setIsSimulationComplete(false);
+                  setIsMissionComplete(false);
                 }
                 setIsPlaying(!isPlaying);
               }}
@@ -211,31 +211,6 @@ export default function ResponderView() {
                   <>
                     <span className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[6px] border-l-emerald-500 border-b-[4px] border-b-transparent ml-1" />
                     INITIALIZE
-                  </>
-                )}
-              </span>
-            </button>
-
-            {/* MOCK MODE TOGGLE */}
-            <button
-              onClick={() => useSimulationStore.getState().setIsMockMode(!useSimulationStore.getState().isMockMode)}
-              className={cn(
-                "group relative px-6 py-2 rounded-full font-mono text-xs font-bold tracking-widest transition-all duration-500 overflow-hidden border",
-                useSimulationStore.getState().isMockMode
-                  ? "border-purple-500/30 hover:border-purple-500 text-purple-400 hover:bg-purple-500/10"
-                  : "border-zinc-700 hover:border-zinc-500 text-zinc-500 hover:bg-zinc-800"
-              )}
-            >
-              <span className="relative z-10 flex items-center gap-2">
-                {useSimulationStore.getState().isMockMode ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
-                    MOCK SIMULATION
-                  </>
-                ) : (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-zinc-600" />
-                    LIVE API MODE
                   </>
                 )}
               </span>

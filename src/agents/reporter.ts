@@ -41,17 +41,16 @@ export async function generateMissionReport(incidents: Incident[], logs: string[
     const startTime = incidents.length > 0 ? incidents[0].timestamp : new Date().toISOString();
     const endTime = new Date().toISOString();
 
-    // SIMULATION FALLBACK: If no API key, use deterministic data
     if (!process.env.GEMINI_API_KEY) {
-        console.log("[REPORTER] [SIMULATION MODE] Generating deterministic mission report");
+        console.error("[REPORTER] GEMINI_API_KEY missing. Generating offline system report.");
         return {
-            report_id: `AEGIS-${new Date().toISOString().split('T')[0]}-SIM-${String(Date.now()).slice(-4)}`,
+            report_id: `AEGIS-${new Date().toISOString().split('T')[0]}-OFFLINE-${String(Date.now()).slice(-4)}`,
             classification: "OFFICIAL",
             incident_period: {
                 start: startTime,
                 end: endTime,
             },
-            executive_summary: `Mission operations completed. Processed ${missionStats.total} total signals with ${missionStats.resolved} validated resolutions. All agents functioned in simulation mode using mock datasets.`,
+            executive_summary: `Mission operations completed. Processed ${missionStats.total} total signals. System operated in OFFLINE mode due to missing API configuration.`,
             operational_metrics: {
                 total_signals_processed: missionStats.total,
                 validated_incidents: missionStats.resolved,
@@ -64,8 +63,8 @@ export async function generateMissionReport(incidents: Incident[], logs: string[
                 ground_assets: groundAssets,
                 total_deployments: totalDeployments,
             },
-            geographic_impact: geographicImpact.length > 0 ? geographicImpact : ["Simulated Disaster Zone"],
-            situational_assessment: `Mission completed successfully. Operational integrity maintained at 100%. Critical incidents were prioritized and routed to appropriate specialized agents. No unauthorized breaches detected. [SIMULATION MODE]`,
+            geographic_impact: geographicImpact.length > 0 ? geographicImpact : ["Unknown Sector"],
+            situational_assessment: `Offline Assessment: Mission statistics compiled from local logs. qualitative AI assessment unavailable.`,
             generated_at: new Date().toISOString(),
             incidents_log
         };

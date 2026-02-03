@@ -26,8 +26,8 @@ interface SimulationState {
     setIsMicAuthorized: (authorized: boolean) => void;
     report: MissionReport | null;
     setReport: (report: MissionReport | null) => void;
-    isSimulationComplete: boolean;
-    setIsSimulationComplete: (complete: boolean) => void;
+    isMissionComplete: boolean;
+    setIsMissionComplete: (complete: boolean) => void;
 
     isReportOpen: boolean;
     setIsReportOpen: (isOpen: boolean) => void;
@@ -71,7 +71,7 @@ const initialState = {
     notification: null,
     isMicAuthorized: false,
     report: null,
-    isSimulationComplete: false,
+    isMissionComplete: false,
     isReportOpen: false,
     isGeneratingReport: false,
     rawThinkingProcess: null,
@@ -125,7 +125,7 @@ export const useSimulationStore = create<SimulationState>()(
 
             setReport: (report) => set({ report }),
 
-            setIsSimulationComplete: (isSimulationComplete) => set({ isSimulationComplete }),
+            setIsMissionComplete: (isMissionComplete) => set({ isMissionComplete }),
 
             setIsReportOpen: (isReportOpen) => set({ isReportOpen }),
 
@@ -158,7 +158,7 @@ export const useSimulationStore = create<SimulationState>()(
                 logs: state.logs,
                 agentAuditLogs: state.agentAuditLogs,
                 isMockMode: state.isMockMode,
-                isSimulationComplete: state.isSimulationComplete,
+                isMissionComplete: state.isMissionComplete,
                 report: state.report,
             }),
         }
@@ -177,7 +177,7 @@ if (typeof window !== "undefined") {
                 const hasChanges =
                     newState.state?.time !== currentState.time ||
                     JSON.stringify(newState.state?.incidents) !== JSON.stringify(currentState.incidents) ||
-                    newState.state?.isSimulationComplete !== currentState.isSimulationComplete;
+                    newState.state?.isMissionComplete !== currentState.isMissionComplete;
 
                 if (hasChanges) {
                     // We use setTimeout to avoid race conditions with Zustand's internal handling
@@ -188,7 +188,7 @@ if (typeof window !== "undefined") {
                             incidents: newState.state?.incidents ?? currentState.incidents,
                             logs: newState.state?.logs ?? currentState.logs,
                             isMockMode: newState.state?.isMockMode ?? currentState.isMockMode,
-                            isSimulationComplete: newState.state?.isSimulationComplete ?? currentState.isSimulationComplete,
+                            isMissionComplete: newState.state?.isMissionComplete ?? currentState.isMissionComplete,
                             report: newState.state?.report ?? currentState.report,
                         });
                     }, 0);

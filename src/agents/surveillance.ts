@@ -8,61 +8,18 @@ import fs from "fs";
 import path from "path";
 import { generateContentStreamWithRetry, extractAndParseJSON } from "@/lib/gemini-utils";
 
-import { MOCK_RESPONSES } from "@/simulation/mock_responses";
+
 
 // The Surveillance Agent analyzes drone footage (frames or videos) to assess damage.
 export async function analyzeSurveillance(incident: Incident, onThought?: (thought: string) => void): Promise<Partial<Incident>> {
-    // SIMULATION FALLBACK: If no API key, use mock data
     if (!process.env.GEMINI_API_KEY) {
-        console.log(`[SURVEILLANCE] [SIMULATION MODE] Returning mock response for ${incident.id}`);
-        const mock = MOCK_RESPONSES[incident.id];
-
-        if (onThought) {
-            const mockThoughts = [
-                "Scanning frame for flood markers...",
-                "Identifying structural cracks...",
-                "Estimating people count...",
-                "Triangulating location from landmarks..."
-            ];
-            for (const t of mockThoughts) {
-                onThought(t + "\n");
-                await new Promise(r => setTimeout(r, 500));
-            }
-        }
-
-        const context = incident.transcript_context || "";
-        if (context) {
-            return {
-                id: incident.id,
-                priority: "CRITICAL",
-                category: "SURVEILLANCE",
-                reasoning_trace: `[System Commander Override] Visual sensors recalibrated to target: ${context}. Structural assessment confirmed life-safety risk.`,
-                display_reasoning: [
-                    "Commander override active",
-                    "Visual sensors recalibrated",
-                    "Life-safety risk confirmed"
-                ],
-                status: "TRIAGED"
-            };
-        }
-
-        if (mock) {
-            return {
-                ...mock,
-                status: "TRIAGED"
-            };
-        }
-        // Generic fallback
+        console.error("[SURVEILLANCE] GEMINI_API_KEY missing. Cannot proceed with Live Analysis.");
         return {
-            flood_level: "Low",
-            structural_damage: "Minimal",
-            reasoning_trace: "No specific mock data found. Analysis based on standard detection algorithms. [MOCK]",
-            display_reasoning: [
-                "Low flood level detected",
-                "Minimal structural damage",
-                "Standard monitoring active"
-            ],
-            category: "General Surveillance",
+            flood_level: "Unknown",
+            structural_damage: "Unknown",
+            reasoning_trace: "System Offline: No AI API Key provided. Live analysis unavailable.",
+            display_reasoning: ["System Offline", "API Key Missing", "Check Config"],
+            category: "SYSTEM_OFFLINE",
             priority: "LOW",
             status: "TRIAGED"
         };
@@ -144,7 +101,7 @@ export async function analyzeSurveillance(incident: Incident, onThought?: (thoug
     TACTICAL CONTEXT:
     ID: ${incident.id}
     Location: ${incident.location.address}
-    Description/Alert: ${incident.description_for_simulation || "N/A"}
+    Description/Alert: ${incident.mission_context || "N/A"}
     
     Analyze the attached media feed.
     `;

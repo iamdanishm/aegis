@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     - Raw Input: ${incident.raw_input.substring(0, 200)}
     - Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
     - Status: ${incident.status}
-    - Context/Description: ${incident.description_for_simulation || "N/A"}
+    - Context/Description: ${incident.mission_context || "N/A"}
     
     Determine the target agent.`;
 

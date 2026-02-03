@@ -17,7 +17,7 @@ const PRIORITY_COLORS = {
 
 // Map Controller component for auto-flying to incidents
 function MapController({ incidents }: { incidents: Incident[] }) {
-    const { focusedIncidentId } = useSimulationStore();
+    const { focusedIncidentId, spotlightId } = useSimulationStore();
     const map = useMap();
     const lastAutoFlyId = { current: null as string | null };
     const animationFrameRef = useRef<number | null>(null);
@@ -114,23 +114,40 @@ function MapController({ incidents }: { incidents: Incident[] }) {
         };
     }, []);
 
-    // Auto-fly to new incidents
+    // 1. Auto-fly to new COMPLETED incidents (Legacy behavior, lower priority)
     useEffect(() => {
         if (!map) return;
 
+        // Only look for TRIAGED or COMPLETED items for this "passive" update
         const latestWithLoc = [...incidents]
             .reverse()
-            .find(i => i.location?.lat && i.location?.lng && i.status !== "PENDING");
+            .find(i => i.location?.lat && i.location?.lng && i.status !== "PENDING" && i.status !== "ANALYZING");
 
         if (latestWithLoc && latestWithLoc.location.lat && latestWithLoc.location.lng) {
             if (lastAutoFlyId.current !== latestWithLoc.id) {
-                cinematicFlyTo(latestWithLoc.location.lat, latestWithLoc.location.lng, 17); // Zoom 17 for 3D buildings
-                lastAutoFlyId.current = latestWithLoc.id;
+                // prevent conflict (only move if we haven't recently gathered focus)
+                // But for now, we just let it happen unless spotlight overrides it
+                // We don't fly if spotlight is active to avoid fighting
+                if (!spotlightId) {
+                    cinematicFlyTo(latestWithLoc.location.lat, latestWithLoc.location.lng, 17);
+                    lastAutoFlyId.current = latestWithLoc.id;
+                }
             }
         }
-    }, [incidents, map, cinematicFlyTo]);
+    }, [incidents, map, cinematicFlyTo, spotlightId]);
 
-    // Fly to focused incident
+    // 2. Fly to SPOTLIGHT (Analyzing) incident - High Priority
+    useEffect(() => {
+        if (!map || !spotlightId) return;
+
+        const incident = incidents.find(i => i.id === spotlightId);
+        if (incident?.location?.lat && incident?.location?.lng) {
+            // Force fly to the spotlight incident
+            cinematicFlyTo(incident.location.lat, incident.location.lng, 18);
+        }
+    }, [spotlightId, incidents, map, cinematicFlyTo]);
+
+    // 3. Fly to Manual FOCUSED incident - Highest Priority (User Override)
     useEffect(() => {
         if (!map || !focusedIncidentId) return;
 
