@@ -15,83 +15,6 @@ const PRIORITY_COLORS = {
     DEFAULT: "#06b6d4"  // Cyan 500
 };
 
-// Google Maps dark mode style
-const DARK_MAP_STYLE = [
-    { elementType: "geometry", stylers: [{ color: "#09090b" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#09090b" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#71717a" }] },
-    {
-        featureType: "administrative.locality",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#a1a1aa" }],
-    },
-    {
-        featureType: "poi",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#52525b" }],
-    },
-    {
-        featureType: "poi.park",
-        elementType: "geometry",
-        stylers: [{ color: "#18181b" }],
-    },
-    {
-        featureType: "poi.park",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#3f3f46" }],
-    },
-    {
-        featureType: "road",
-        elementType: "geometry",
-        stylers: [{ color: "#27272a" }],
-    },
-    {
-        featureType: "road",
-        elementType: "geometry.stroke",
-        stylers: [{ color: "#18181b" }],
-    },
-    {
-        featureType: "road.highway",
-        elementType: "geometry",
-        stylers: [{ color: "#3f3f46" }],
-    },
-    {
-        featureType: "road.highway",
-        elementType: "geometry.stroke",
-        stylers: [{ color: "#27272a" }],
-    },
-    {
-        featureType: "road.highway",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#a1a1aa" }],
-    },
-    {
-        featureType: "transit",
-        elementType: "geometry",
-        stylers: [{ color: "#27272a" }],
-    },
-    {
-        featureType: "transit.station",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#52525b" }],
-    },
-    {
-        featureType: "water",
-        elementType: "geometry",
-        stylers: [{ color: "#0c0c0e" }],
-    },
-    {
-        featureType: "water",
-        elementType: "labels.text.fill",
-        stylers: [{ color: "#3f3f46" }],
-    },
-    {
-        featureType: "water",
-        elementType: "labels.text.stroke",
-        stylers: [{ color: "#09090b" }],
-    },
-];
-
 // Map Controller component for auto-flying to incidents
 function MapController({ incidents }: { incidents: Incident[] }) {
     const { focusedIncidentId } = useSimulationStore();
@@ -99,126 +22,95 @@ function MapController({ incidents }: { incidents: Incident[] }) {
     const lastAutoFlyId = { current: null as string | null };
     const animationFrameRef = useRef<number | null>(null);
 
-    // Hybrid Fly-To Animation
-    const smoothFlyTo = useCallback((targetLat: number, targetLng: number, targetZoom: number) => {
+    // Cinematic 3D Fly-To Animation
+    const cinematicFlyTo = useCallback((targetLat: number, targetLng: number, targetZoom: number) => {
         if (!map) return;
 
-        // Cancel any existing animation
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-        }
+        // Cancel existing
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 
         const startCenter = map.getCenter();
         const startZoom = map.getZoom() || 13;
+        const startTilt = map.getTilt() || 0;
+        const startHeading = map.getHeading() || 0;
 
-        // Safety check
         if (!startCenter || !Number.isFinite(targetLat) || !Number.isFinite(targetLng)) {
-            map.setCenter({ lat: targetLat, lng: targetLng });
-            map.setZoom(targetZoom);
+            map.moveCamera({ center: { lat: targetLat, lng: targetLng }, zoom: targetZoom });
             return;
         }
 
         const startLat = startCenter.lat();
         const startLng = startCenter.lng();
 
-        // Calculate Euclidean distance (approximate degrees)
+        // Animation Configuration
+        const duration = 4000; // Slow, majestic flight
+        const startTime = performance.now();
+
+        // Target 3D Orientation
+        const targetTilt = 45; // 45 degree tilt for 3D effect at destination
+        const targetHeading = 0; // Reset heading North
+
+        // Flight Arc Configuration
+        // We zoom out significantly to show the Globe curvature if the distance is far
         const dist = Math.sqrt(Math.pow(startLat - targetLat, 2) + Math.pow(startLng - targetLng, 2));
+        const isLongHaul = dist > 1.0; // > ~100km
+        const minFlightZoom = isLongHaul ? 4 : Math.min(startZoom, targetZoom) - 2;
 
-        // --- STRATEGY SELECTION ---
+        const easeInOutCubic = (t: number) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
-        // Threshold: 0.1 degrees is roughly 11km. 
-        // If > 0.5 degrees (~55km), it's "Long Distance".
-        const isLongDistance = dist > 0.5;
+        const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = easeInOutCubic(progress);
 
-        if (isLongDistance) {
-            // --- LONG DISTANCE: SATELLITE JUMP ---
-            // 1. Zoom out high
-            // 2. Instant jump (invisible at high altitude)
-            // 3. Zoom in
+            // Interpolate Position
+            const currentLat = startLat + (targetLat - startLat) * eased;
+            const currentLng = startLng + (targetLng - startLng) * eased;
 
-            const highAltitudeZoom = 6; // Zoom level where continents are visible
+            // Interpolate Zoom with Parabolic Arc
+            // We want to be at minFlightZoom when progress is 0.5
+            // Bezier curve for zoom? Or simple parabola.
+            // Let's use a weighted interpolation.
+            // Zoom goes: Start -> Min -> Target
+            let currentZoom;
+            if (progress < 0.5) {
+                // Outward phase: Start -> Min
+                const outProgress = easeInOutCubic(progress * 2);
+                currentZoom = startZoom + (minFlightZoom - startZoom) * outProgress;
+            } else {
+                // Inward phase: Min -> Target
+                const inProgress = easeInOutCubic((progress - 0.5) * 2);
+                currentZoom = minFlightZoom + (targetZoom - minFlightZoom) * inProgress;
+            }
 
-            // Phase 1: Zoom Out logic
-            const zoomOutDuration = 1200;
-            const startTime = performance.now();
-            const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+            // Interpolate Tilt: Top-down (0) -> Angled (45)
+            // We flatten tilt during flight, add tilt on arrival
+            let currentTilt;
+            if (progress < 0.7) {
+                // Flatten to look straight down during travel
+                currentTilt = startTilt * (1 - (progress / 0.7));
+            } else {
+                // Tilt up as we arrive
+                const tiltProgress = (progress - 0.7) / 0.3;
+                currentTilt = targetTilt * tiltProgress;
+            }
 
-            const animateJump = (currentTime: number) => {
-                const elapsed = currentTime - startTime;
+            // Execute Move
+            map.moveCamera({
+                center: { lat: currentLat, lng: currentLng },
+                zoom: currentZoom,
+                tilt: currentTilt,
+                heading: targetHeading
+            });
 
-                if (elapsed < zoomOutDuration) {
-                    // Zooming Out
-                    const progress = elapsed / zoomOutDuration;
-                    const eased = easeOutCubic(progress);
-                    const currentZoom = startZoom + (highAltitudeZoom - startZoom) * eased;
+            if (progress < 1) {
+                animationFrameRef.current = requestAnimationFrame(animate);
+            } else {
+                animationFrameRef.current = null;
+            }
+        };
 
-                    map.moveCamera({ center: { lat: startLat, lng: startLng }, zoom: currentZoom });
-                    animationFrameRef.current = requestAnimationFrame(animateJump);
-                } else if (elapsed < zoomOutDuration + 200) {
-                    // Holding at high altitude (brief pause to stabilize) & swichting center
-                    map.moveCamera({ center: { lat: targetLat, lng: targetLng }, zoom: highAltitudeZoom });
-                    animationFrameRef.current = requestAnimationFrame(animateJump);
-                } else {
-                    // Phase 2: Zoom In logic (handled by a second loop or continuation)
-                    // We restart a new animation from High Altitude -> Target
-                    cancelAnimationFrame(animationFrameRef.current!);
-
-                    const zoomInDuration = 1500;
-                    const zoomInStart = performance.now();
-
-                    const animateDive = (now: number) => {
-                        const diveElapsed = now - zoomInStart;
-                        const diveProgress = Math.min(diveElapsed / zoomInDuration, 1);
-                        const diveEased = easeOutCubic(diveProgress); // Decelerate into target
-
-                        const diveZoom = highAltitudeZoom + (targetZoom - highAltitudeZoom) * diveEased;
-
-                        map.moveCamera({ center: { lat: targetLat, lng: targetLng }, zoom: diveZoom });
-
-                        if (diveProgress < 1) {
-                            animationFrameRef.current = requestAnimationFrame(animateDive);
-                        } else {
-                            animationFrameRef.current = null;
-                        }
-                    };
-                    animationFrameRef.current = requestAnimationFrame(animateDive);
-                }
-            };
-            animationFrameRef.current = requestAnimationFrame(animateJump);
-
-        } else {
-            // --- SHORT DISTANCE: SMOOTH PAN ---
-            // Direct interpolation with minor zoom adjustments
-
-            const duration = 1500;
-            const startTime = performance.now();
-            const easeInOutQuad = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
-            const animatePan = (currentTime: number) => {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                const eased = easeInOutQuad(progress);
-
-                const currentLat = startLat + (targetLat - startLat) * eased;
-                const currentLng = startLng + (targetLng - startLng) * eased;
-
-                // Slight zoom out for effect
-                const arcFactor = 4 * progress * (1 - progress);
-                const zoomDip = 1.0; // Mild dip
-                const currentZoom = startZoom + (targetZoom - startZoom) * eased - (zoomDip * arcFactor);
-
-                map.moveCamera({ center: { lat: currentLat, lng: currentLng }, zoom: currentZoom });
-
-                if (progress < 1) {
-                    animationFrameRef.current = requestAnimationFrame(animatePan);
-                } else {
-                    animationFrameRef.current = null;
-                }
-            };
-            animationFrameRef.current = requestAnimationFrame(animatePan);
-        }
-
+        animationFrameRef.current = requestAnimationFrame(animate);
     }, [map]);
 
     // Cleanup
@@ -238,11 +130,11 @@ function MapController({ incidents }: { incidents: Incident[] }) {
 
         if (latestWithLoc && latestWithLoc.location.lat && latestWithLoc.location.lng) {
             if (lastAutoFlyId.current !== latestWithLoc.id) {
-                smoothFlyTo(latestWithLoc.location.lat, latestWithLoc.location.lng, 15);
+                cinematicFlyTo(latestWithLoc.location.lat, latestWithLoc.location.lng, 17); // Zoom 17 for 3D buildings
                 lastAutoFlyId.current = latestWithLoc.id;
             }
         }
-    }, [incidents, map, smoothFlyTo]);
+    }, [incidents, map, cinematicFlyTo]);
 
     // Fly to focused incident
     useEffect(() => {
@@ -250,9 +142,9 @@ function MapController({ incidents }: { incidents: Incident[] }) {
 
         const incident = incidents.find(i => i.id === focusedIncidentId);
         if (incident?.location?.lat && incident?.location?.lng) {
-            smoothFlyTo(incident.location.lat, incident.location.lng, 17);
+            cinematicFlyTo(incident.location.lat, incident.location.lng, 18);
         }
-    }, [focusedIncidentId, incidents, map, smoothFlyTo]);
+    }, [focusedIncidentId, incidents, map, cinematicFlyTo]);
 
     return null;
 }
@@ -463,7 +355,7 @@ export function TacticalMap({ className }: { className?: string }) {
                 </div>
             </div>
 
-            {/* 2. Map Component */}
+            {/* 2. Map Component - ENABLE VECTOR + TILT */}
             <APIProvider apiKey={apiKey}>
                 <Map
                     defaultCenter={center}
@@ -473,6 +365,9 @@ export function TacticalMap({ className }: { className?: string }) {
                     className="h-full w-full"
                     gestureHandling="greedy"
                     colorScheme="DARK"
+                    renderingType="VECTOR"
+                    defaultTilt={45}
+                    defaultHeading={0}
                 >
                     <MapController incidents={incidents} />
 
