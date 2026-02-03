@@ -93,10 +93,17 @@ export function useDisasterSimulation() {
     // ------------------------------------------------------------------
     // 2. Event Spawner (Adds to PENDING list based on time)
     // ------------------------------------------------------------------
+    const SPAWN_INTERVAL = 5; // Seconds between events
+    const SPAWN_START_DELAY = 2; // Start after 2s
+
     useEffect(() => {
         const spawnEvents = () => {
-            // Find events that match the current time
-            const events = simulationData.filter((e) => e.trigger_time_offset === time);
+            // Find events that match the current time based on INDEX
+            // Formula: Time = (Index * Interval) + StartDelay
+            const events = simulationData.filter((_, index) => {
+                const triggerTime = (index * SPAWN_INTERVAL) + SPAWN_START_DELAY;
+                return triggerTime === time;
+            });
 
             for (const event of events) {
                 // Check if already added to avoid duplicates
@@ -553,8 +560,11 @@ export function useDisasterSimulation() {
     useEffect(() => {
         if (!isPlaying) return;
 
-        // Find the last scheduled event time
-        const lastEventTime = Math.max(...simulationData.map(e => e.trigger_time_offset));
+        // Auto-calculated last event time based on strict index staggering
+        // Formula: Time = (Index * Interval) + StartDelay
+        const lastIndex = simulationData.length - 1;
+        const lastEventTime = (lastIndex * SPAWN_INTERVAL) + SPAWN_START_DELAY;
+
         // Add a buffer to allow for processing/reasoning visualization
         const END_BUFFER = 8;
 
