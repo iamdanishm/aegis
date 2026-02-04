@@ -1,5 +1,16 @@
 [
     {
+        "id": "EVT-AUTH-001",
+        "raw_input": "CRITICAL ALERT: MISSILE DEFENSE SYSTEM [AEGIS-7] REPORTING UNAUTHORIZED TARGET LOCK ON CIVILIAN AIRLINER AAL-992. CONFIRM ABORT SEQUENCE IMMEDIATELY.",
+        "location": {
+            "lat": 38.8719,
+            "lng": -77.0563,
+            "address": "The Pentagon, Arlington, VA"
+        },
+        "status": "PENDING",
+        "requires_human_auth": true
+    },
+    {
         "id": "EVT-AUDIO-001",
         "raw_input": "/SeedData/Audios/audio1.mp3",
         "location": {
