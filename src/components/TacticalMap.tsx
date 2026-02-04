@@ -391,6 +391,7 @@ export function TacticalMap({ className }: { className?: string }) {
                         gestureHandling="greedy"
                         colorScheme="DARK"
                         renderingType="VECTOR"
+                        reuseMaps={true}
                         defaultTilt={45}
                         defaultHeading={0}
                         onClick={handleMapClick}
