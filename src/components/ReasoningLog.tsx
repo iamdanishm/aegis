@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useSimulationStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { MODELS } from "@/lib/constants";
-import { Mic, Target, Loader2, CheckCircle } from "lucide-react";
+import { Mic, Target, Loader2, CheckCircle, XCircle } from "lucide-react";
 
 // Custom Markdown-lite formatter
 function FormattedReasoningDisplay({ text }: { text: string }) {
@@ -432,6 +432,22 @@ export function ReasoningLog({ className }: { className?: string }) {
                                                 </div>
                                             </div>
                                         )}
+
+                                        {/* 3. Protocol Zero Sanction (Tertiary) */}
+                                        {(latestTriaged.reasoning_trace || "").includes('[PROTOCOL ZERO SANCTIONED]:') && (
+                                            <div className="mt-4 pt-3 border-t border-red-500/20 bg-red-950/5 p-3 rounded-lg border border-red-500/10">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Target className="w-3.5 h-3.5 text-red-500" />
+                                                    <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Protocol Zero Sanctioned</span>
+                                                </div>
+                                                <div className="text-[11px] leading-relaxed text-zinc-300 font-mono italic">
+                                                    {(() => {
+                                                        const parts = (latestTriaged.reasoning_trace || "").split('[PROTOCOL ZERO SANCTIONED]:');
+                                                        return parts[1]?.trim() || "Action Authorized.";
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -467,13 +483,22 @@ export function ReasoningLog({ className }: { className?: string }) {
                                 />
                             </div>
 
-                            <button
-                                onClick={() => updateIncident(latestTriaged.id, { auth_status: "APPROVED" })}
-                                className="w-full bg-red-500 hover:bg-red-400 text-white font-bold text-[10px] py-2 rounded uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Target className="w-3 h-3" />
-                                Authorize Protocol Zero
-                            </button>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => updateIncident(latestTriaged.id, { auth_status: "DENIED" })}
+                                    className="flex-1 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 font-bold text-[10px] py-2 rounded uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <XCircle className="w-3 h-3" />
+                                    Decline
+                                </button>
+                                <button
+                                    onClick={() => updateIncident(latestTriaged.id, { auth_status: "APPROVED" })}
+                                    className="flex-[2] bg-red-500 hover:bg-red-400 text-white font-bold text-[10px] py-2 rounded uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Target className="w-3 h-3" />
+                                    Authorize
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         !pendingIncident && latestTriaged && (

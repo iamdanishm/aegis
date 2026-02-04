@@ -193,7 +193,11 @@ export async function manageLogistics(incident: Incident, onThought?: (thought: 
         return {
             assigned_assets: [result.recommended_asset],
             required_asset: (result.required_asset_type || "General").toUpperCase() as any,
-            reasoning_trace: incident.type === "COMMAND" ? `COMMAND EXECUTED: ${result.routing_notes}` : result.routing_notes,
+            reasoning_trace: incident.auth_status === "APPROVED"
+                ? `[PROTOCOL ZERO SANCTIONED]: ACTION AUTHORIZED BY COMMANDER. ${result.routing_notes}`
+                : incident.type === "COMMAND"
+                    ? `COMMAND EXECUTED: ${result.routing_notes}`
+                    : result.routing_notes,
             verification_status: result.verification_status || "UNVERIFIED",
             priority: result.priority || incident.priority
         };

@@ -521,9 +521,16 @@ export function useDisasterSimulation() {
 
                 // HERO COMPLETE: Processing finished
                 // Spotlight release moved to finally block to ensure atomic UI updates
+                // HERO COMPLETE: Processing finished
                 throttledSetRawThinkingProcess(null);
                 useSimulationStore.getState().setActiveAgent(null);
                 useSimulationStore.getState().setActiveModel(null);
+
+                // CRITICAL FIX: Release Spotlight IMMEDIATELY so Auth Card can appear
+                // Do not wait for background workers
+                if (heroIncident) {
+                    useSimulationStore.getState().setSpotlightId(null);
+                }
 
                 // Wait for all background incidents to complete
                 await Promise.all(backgroundPromises);
@@ -549,14 +556,7 @@ export function useDisasterSimulation() {
                 const remainingBatch = Array.from(processingIdsRef.current);
                 useSimulationStore.getState().setProcessingBatch(remainingBatch);
 
-                // Release Spotlight ONLY if we were holding it (Hero finished)
-                if (heroIncident) {
-                    useSimulationStore.getState().setSpotlightId(null);
-                    // Also clear these if we were the hero
-                    throttledSetRawThinkingProcess(null);
-                    useSimulationStore.getState().setActiveAgent(null);
-                    useSimulationStore.getState().setActiveModel(null);
-                }
+                // Note: Spotlight release moved up to ensure responsiveness
             }
         };
 
@@ -569,20 +569,23 @@ export function useDisasterSimulation() {
         if (!isPlaying) return;
 
         const processApprovals = async () => {
-            const approvedIncidents = useSimulationStore.getState().incidents.filter(
-                i => i.auth_status === "APPROVED" && !handledAuthIds.current.has(i.id)
+            const decidedIncidents = useSimulationStore.getState().incidents.filter(
+                i => (i.auth_status === "APPROVED" || i.auth_status === "DENIED") && !handledAuthIds.current.has(i.id)
             );
 
-            for (const inc of approvedIncidents) {
+            for (const inc of decidedIncidents) {
                 handledAuthIds.current.add(inc.id);
-                addLog(`[${time}s] [PROTOCOL ZERO] ✅ Authorization Verified for ${inc.id}. Resuming...`);
+                const isApproved = inc.auth_status === "APPROVED";
+                const actionLog = isApproved ? "✅ Authorization Verified" : "🚫 Authorization DENIED";
+
+                addLog(`[${time}s] [PROTOCOL ZERO] ${actionLog} for ${inc.id}. Processing decision...`);
 
                 try {
-                    const processed = await coordinateIncident({ ...inc, auth_status: "APPROVED" });
+                    const processed = await coordinateIncident({ ...inc, auth_status: inc.auth_status });
                     updateIncident(inc.id, processed);
-                    addLog(`[${time}s] [LOGISTICS] Action Execution Resumed.`);
+                    addLog(`[${time}s] [LOGISTICS] Incident Resolution: ${inc.auth_status}`);
                 } catch (e) {
-                    console.error("Error resuming approved incident", e);
+                    console.error("Error resuming decided incident", e);
                 }
             }
         };

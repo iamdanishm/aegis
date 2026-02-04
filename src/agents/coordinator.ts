@@ -226,12 +226,13 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
 
                         2. Analyze the command intent (e.g., "Reroute", "Abort", "Prioritize", "Evacuate", "Update Context").
                         3. Extract specific LOCATIONS or ASSETS mentioned. If a new address is mentioned, you MUST provide it in the 'location' field.
-                        4. Output a JSON with:
-                           - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
-                           - reasoning_trace: Explanation of the command processing.
-                           - priority: "CRITICAL" (Standard) or specific level requested.
-                           - location: { lat: number, lng: number, address: string } (ONLY if new location is identified).
-                    `;
+                            4. Output a JSON with:
+                               - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
+                               - reasoning_trace: Explanation of the command processing.
+                               - priority: "CRITICAL" (Standard) or specific level requested.
+                               - location: { lat: number, lng: number, address: string } (ONLY if new location is identified).
+                               - auth_status: "APPROVED" | "DENIED" (ONLY if command explicitly authorizes/denies a pending action).
+                        `;
 
                     const response = await generateContentWithRetry(ai.models, {
                         model: MODELS.COORDINATOR,
@@ -244,6 +245,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                                     command_intent: { type: Type.STRING },
                                     reasoning_trace: { type: Type.STRING },
                                     priority: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+                                    auth_status: { type: Type.STRING, enum: ["APPROVED", "DENIED", "PENDING"] },
                                     location: {
                                         type: Type.OBJECT,
                                         properties: {
@@ -285,11 +287,13 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                              - reasoning_trace: "Command rejected: Audio input was vague or non-actionable."
                         3. Extract the CORE INTENT (e.g., "Reroute", "Abort", "Prioritize", "Evacuate", "Update Context").
                         4. Extract specific LOCATIONS or ASSETS mentioned. If a new address is mentioned, you MUST provide it in the 'location' field.
-                        5. Output a JSON with:
+                        5. **AUTHORIZATION CHECK**: If the user says "Authorize", "Proceed", "Go ahead", or "Execute Protocol Zero", set 'auth_status' to "APPROVED".
+                        6. Output a JSON with:
                            - command_intent: Short summary (e.g., "REROUTE ALL UNITS FROM SECTOR 4").
                            - reasoning_trace: Explanation of the command.
                            - priority: "CRITICAL" (Standard) or specific level requested.
                            - location: { lat: number, lng: number, address: string } (ONLY if new location is identified).
+                           - auth_status: "APPROVED" | "DENIED" (If applicable).
                      `;
 
                     const response = await generateContentWithRetry(ai.models, {
@@ -306,6 +310,7 @@ export async function coordinateIncident(incident: Incident): Promise<Incident> 
                                     command_intent: { type: Type.STRING },
                                     reasoning_trace: { type: Type.STRING },
                                     priority: { type: Type.STRING, enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+                                    auth_status: { type: Type.STRING, enum: ["APPROVED", "DENIED", "PENDING"] },
                                     location: {
                                         type: Type.OBJECT,
                                         properties: {

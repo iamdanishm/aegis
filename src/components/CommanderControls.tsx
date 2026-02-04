@@ -12,6 +12,7 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [transcript, setTranscript] = useState("");
+    const [isSpeechSupported, setIsSpeechSupported] = useState(false);
     const recognitionRef = useRef<any>(null); // Use 'any' for window.webkitSpeechRecognition
     const finalTranscriptRef = useRef("");     // Accumulate final results here
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -29,6 +30,14 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
     useEffect(() => {
         setIsVoiceProcessing(isProcessing);
     }, [isProcessing, setIsVoiceProcessing]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            // @ts-ignore
+            const supported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+            setIsSpeechSupported(supported);
+        }
+    }, []);
 
     // Handle "Cancel" logic -> Clean stop without processing
     const abortRecording = () => {
@@ -206,10 +215,6 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
         // STANDARD FLOW: Event is NOT currently analyzing, run independent command
         // =======================================================================
 
-        // =======================================================================
-        // STANDARD FLOW: Event is NOT currently analyzing, run independent command
-        // =======================================================================
-
         // 1. PREEMPTION: Abort any currently running analysis to free up the system
         const activeController = useSimulationStore.getState().activeAbortController;
         if (activeController) {
@@ -290,7 +295,7 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
             // If it's an update to an existing incident, APPEND with separator for SignalFeed visibility.
             const combinedReasoning = incidentContext
                 ? `${existingReasoning}\n\n[COMMAND OVERRIDE]: ${processed.command_intent || "Executed"}\n${processed.reasoning_trace}`.trim()
-                : (`[COMMAND]: ${processed.command_intent || "Executed"}\n${processed.reasoning_trace}`);
+                : (`[COMMAND OVERRIDE]: ${processed.command_intent || "Executed"}\n${processed.reasoning_trace}`);
 
             // Merge Assets - use FRESH data
             // 1. Start with existing assets
@@ -300,7 +305,7 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
             // 3. Filter out "SYSTEM_UPDATE" or duplicates
             const mergedAssets = Array.from(new Set([
                 ...existingAssets,
-                ...newAssets.filter(a => a !== "SYSTEM_UPDATE" && a !== "ACKNOWLEDGED_ACTION")
+                ...newAssets.filter((a: string) => a !== "SYSTEM_UPDATE" && a !== "ACKNOWLEDGED_ACTION")
             ]));
 
             updateIncident(targetId, {
@@ -391,14 +396,19 @@ export function CommanderControls({ incidentContext, className }: { incidentCont
 
 
             {/* Live Transcript Portal - Breaks out of overflow-hidden containers */}
-            {isRecording && transcript && typeof document !== 'undefined' && createPortal(
+            {/* Live Transcript Portal - Breaks out of overflow-hidden containers */}
+            {isRecording && typeof document !== 'undefined' && createPortal(
                 <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] bg-black/90 backdrop-blur-md border border-red-500/50 p-4 rounded-xl shadow-[0_0_50px_rgba(220,38,38,0.5)] min-w-[300px] max-w-[500px] text-center animate-in slide-in-from-bottom-10 fade-in duration-300">
                     <div className="text-[10px] uppercase tracking-widest text-red-400 mb-2 font-bold flex items-center justify-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                         Live Voice Transcript
                     </div>
                     <div className="text-sm font-mono text-white leading-relaxed whitespace-pre-wrap">
-                        {transcript}
+                        {transcript || (
+                            isSpeechSupported
+                                ? <span className="text-zinc-500 italic">Listening...</span>
+                                : <span className="text-red-400 italic">Transcription Unavailable - Using Audio</span>
+                        )}
                     </div>
                 </div>,
                 document.body

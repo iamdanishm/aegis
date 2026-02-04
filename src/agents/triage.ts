@@ -309,7 +309,16 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
 
         // Map Forensics & Conflict
         responseObj.location_source = result.location_source;
-        responseObj.manual_trace_required = result.manual_trace_required;
+
+        // Safety: If we have valid seed coordinates, we rarely genuinely need a manual trace unless there's a conflict.
+        // If the AI flagged it but we have hard coordinates, suppress the flag so the map button remains clickable.
+        const hasHardCoordinates = incident.location && typeof incident.location.lat === 'number' && incident.location.lat !== 0;
+        if (hasHardCoordinates && result.manual_trace_required && !result.conflicting_location) {
+            console.log("[TRIAGE] 🛡️ Suppressing 'Manual Trace' flag due to valid existing coordinates.");
+            responseObj.manual_trace_required = false;
+        } else {
+            responseObj.manual_trace_required = result.manual_trace_required;
+        }
         responseObj.location_ambiguity = result.location_ambiguity;
 
         if (result.conflicting_location) {
@@ -317,18 +326,40 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
         }
 
         if (result.location) {
-            // Safety Check: Don't overwrite a high-quality seed address with "Unknown" or implicit coordinates
-            const existingAddress = incident.location?.address;
-            const newAddress = result.location.address;
+            // ROBUST LOCATION MERGE STRATEGY
+            // 1. Establish Baselines
+            const seedLoc = incident.location;
+            const aiLoc = result.location;
 
-            if (existingAddress && (!newAddress || newAddress === "Unknown Address" || newAddress.includes("lat:") || newAddress.length < 5)) {
-                console.log(`[TRIAGE] Preserving existing address: "${existingAddress}" over new: "${newAddress}"`);
-                result.location.address = existingAddress;
+            const isSeedValid = seedLoc && typeof seedLoc.lat === 'number' && seedLoc.lat !== 0;
+            const isAiValid = aiLoc && typeof aiLoc.lat === 'number' && aiLoc.lat !== 0;
+
+            if (isAiValid) {
+                // AI found a specific location with coordinates -> Trust it (it might be a correction)
+                // But perform the address quality check from before
+                const existingAddress = seedLoc?.address;
+                const newAddress = aiLoc.address;
+
+                if (existingAddress && (!newAddress || newAddress === "Unknown Address" || newAddress.includes("lat:") || newAddress.length < 5)) {
+                    console.log(`[TRIAGE] Preserving existing address: "${existingAddress}" over new: "${newAddress}"`);
+                    aiLoc.address = existingAddress;
+                }
+
+                responseObj.location = aiLoc;
+
+            } else if (isSeedValid) {
+                // AI returned a location object but with invalid/zero coords, but we have a good seed.
+                // IGNORE the AI location entirely to protect the seed.
+                console.log(`[TRIAGE] 🛡️ Ignoring AI location (Lat/Lng 0 or missing) in favor of valid Seed Location.`);
+                // Do NOT set responseObj.location, letting the spread operator invoke the fallback/preservation
+            } else {
+                // Both are weak, but maybe AI found an address at least?
+                if (aiLoc.address && aiLoc.address !== "Unknown" && aiLoc.address !== "Unknown Address") {
+                    responseObj.location = aiLoc; // Accept better-than-nothing address
+                }
             }
-
-            responseObj.location = result.location;
-        } else if (result.extracted_address) {
-            // Fallback for older logic
+        } else if (result.extracted_address && result.extracted_lat) {
+            // Fallback for older legacy field logic
             console.log(`[TRIAGE] LOCATION FOUND (fallback): ${result.extracted_address} (${result.extracted_lat}, ${result.extracted_lng})`);
             responseObj.location = {
                 lat: result.extracted_lat,
