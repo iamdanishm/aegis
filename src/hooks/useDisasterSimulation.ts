@@ -494,6 +494,14 @@ export function useDisasterSimulation() {
                     }
                 }
 
+
+                // HERO COMPLETE: Immediately release spotlight so the next event can take the stage
+                // validation: This prevents the "Blocker Bug" where we waited for background tasks
+                throttledSetRawThinkingProcess(null);
+                useSimulationStore.getState().setSpotlightId(null);
+                useSimulationStore.getState().setActiveAgent(null);
+                useSimulationStore.getState().setActiveModel(null);
+
                 // Wait for all background incidents to complete
                 await Promise.all(backgroundPromises);
             } catch (error: any) {
