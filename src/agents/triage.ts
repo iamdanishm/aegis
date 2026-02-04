@@ -317,6 +317,15 @@ export async function triageIncident(incident: Incident, onThought?: (thought: s
         }
 
         if (result.location) {
+            // Safety Check: Don't overwrite a high-quality seed address with "Unknown" or implicit coordinates
+            const existingAddress = incident.location?.address;
+            const newAddress = result.location.address;
+
+            if (existingAddress && (!newAddress || newAddress === "Unknown Address" || newAddress.includes("lat:") || newAddress.length < 5)) {
+                console.log(`[TRIAGE] Preserving existing address: "${existingAddress}" over new: "${newAddress}"`);
+                result.location.address = existingAddress;
+            }
+
             responseObj.location = result.location;
         } else if (result.extracted_address) {
             // Fallback for older logic

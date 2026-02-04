@@ -38,12 +38,13 @@ Rules:
 3. Resource requests -> LOGISTICS
 Return ONLY a JSON object with your decision.`;
 
+    console.log(`[COORDINATOR] Location Check:`, incident.location);
     const prompt = `
 Incident Data:
 - ID: ${incident.id}
 - Type: ${incident.type || "UNKNOWN (Infer from Input)"}
 - Raw Input: ${incident.raw_input.substring(0, 200)}${incident.raw_input.length > 200 ? "..." : ""}
-- Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}`}
+- Location: ${incident.location?.address || `${incident.location?.lat}, ${incident.location?.lng}` || "UNKNOWN_LOCATION"}
 - Current Status: ${incident.status}
 - Description: ${incident.mission_context || "N/A"}
 ${incident.transcript_context ? `\n[ACTION REQUIRED]: User has provided context: "${incident.transcript_context}". Route based on this NEW context.` : ""}

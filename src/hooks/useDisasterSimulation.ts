@@ -77,6 +77,9 @@ export function useDisasterSimulation() {
     // Master AbortController for all background fetches - allows stopping ALL processing at once
     const masterAbortControllerRef = useRef<AbortController | null>(null);
 
+    // Track handled auths to prevent double-execution
+    const handledAuthIds = useRef<Set<string>>(new Set());
+
     // Cleanup effect: When simulation STOPS, abort all ongoing work and reset refs
     useEffect(() => {
         if (!isPlaying) {
@@ -88,6 +91,7 @@ export function useDisasterSimulation() {
             // Reset worker tracking refs
             activeWorkerCountRef.current = 0;
             processingIdsRef.current.clear();
+            handledAuthIds.current.clear();
             // Clear streaming buffer
             streamBufferRef.current = "";
             if (streamFlushTimeoutRef.current) {
@@ -141,12 +145,8 @@ export function useDisasterSimulation() {
                     responder_status: "PENDING" // Default responder status
                 } as unknown as Incident;
 
-                // Safety Valve
-                if (incident.requires_human_auth) {
-                    addLog(`[${time}s] [PROTOCOL ZERO] 🛑 PAUSED ${incident.id} for Authorization.`);
-                    incident.auth_status = "PENDING";
-                    incident.auth_timeout_at = time + 30;
-                }
+                // Safety Valve - REMOVED: Moved to post-analysis
+                // if (incident.requires_human_auth) { ... }
 
                 addLog(`[${time}s] [SYSTEM] Signal Detected: ${incident.id}`);
                 addIncident(incident);
@@ -268,7 +268,18 @@ export function useDisasterSimulation() {
                             }
                         }
 
-                        updateIncident(incident.id, { ...result, status: "TRIAGED" });
+                        // PROTOCOL ZERO CHECK (Background)
+                        let authUpdates = {};
+                        if (incident.requires_human_auth) {
+                            const currentTime = useSimulationStore.getState().time;
+                            authUpdates = {
+                                auth_status: "PENDING",
+                                auth_timeout_at: currentTime + 30
+                            };
+                            addLog(`[${currentTime}s] [PROTOCOL ZERO] 🛑 PAUSED ${incident.id} for Authorization.`);
+                        }
+
+                        updateIncident(incident.id, { ...result, ...authUpdates, status: "TRIAGED" });
                         addLog(`[${time}s] [COORDINATOR] 📋 Background complete: ${incident.id}`);
                     } catch (error: any) {
                         // Silently ignore abort errors - they're expected when stopping
@@ -361,8 +372,21 @@ export function useDisasterSimulation() {
                         // Normal Completion
                         // Preserve result for potential override merge
                         partialResultRef.current = latestResult;
+
+                        // PROTOCOL ZERO CHECK (Hero)
+                        let authUpdates = {};
+                        if (heroIncident.requires_human_auth) {
+                            const currentTime = useSimulationStore.getState().time;
+                            authUpdates = {
+                                auth_status: "PENDING",
+                                auth_timeout_at: currentTime + 30
+                            };
+                            addLog(`[${currentTime}s] [PROTOCOL ZERO] 🛑 PAUSED ${heroIncident.id} for Authorization.`);
+                        }
+
                         updateIncident(heroIncident.id, {
                             ...latestResult,
+                            ...authUpdates,
                             status: "TRIAGED"
                         });
                         addLog(`[${time}s] [COORDINATOR] 🎯 Hero finalized: ${heroIncident.id}`);
@@ -495,10 +519,9 @@ export function useDisasterSimulation() {
                 }
 
 
-                // HERO COMPLETE: Immediately release spotlight so the next event can take the stage
-                // validation: This prevents the "Blocker Bug" where we waited for background tasks
+                // HERO COMPLETE: Processing finished
+                // Spotlight release moved to finally block to ensure atomic UI updates
                 throttledSetRawThinkingProcess(null);
-                useSimulationStore.getState().setSpotlightId(null);
                 useSimulationStore.getState().setActiveAgent(null);
                 useSimulationStore.getState().setActiveModel(null);
 
@@ -522,15 +545,17 @@ export function useDisasterSimulation() {
                 }
 
                 // Update UI batch to reflect remaining processing
+                // CRITICAL: Update this BEFORE clearing spotlight so UI doesn't see [Spotlight=null, Batch=HeroID]
                 const remainingBatch = Array.from(processingIdsRef.current);
                 useSimulationStore.getState().setProcessingBatch(remainingBatch);
 
-                // Only clear spotlight/agent if no more workers are active
-                if (activeWorkerCountRef.current === 0) {
+                // Release Spotlight ONLY if we were holding it (Hero finished)
+                if (heroIncident) {
+                    useSimulationStore.getState().setSpotlightId(null);
+                    // Also clear these if we were the hero
                     throttledSetRawThinkingProcess(null);
                     useSimulationStore.getState().setActiveAgent(null);
                     useSimulationStore.getState().setActiveModel(null);
-                    useSimulationStore.getState().setSpotlightId(null);
                 }
             }
         };
@@ -538,6 +563,32 @@ export function useDisasterSimulation() {
         processQueue();
     }, [time, isPlaying, allIncidents, isMockMode, updateIncident, addLog, throttledSetRawThinkingProcess]);
 
+
+    // PROTOCOL ZERO: Executor (Handles BOTH Manual and Auto-Approvals)
+    useEffect(() => {
+        if (!isPlaying) return;
+
+        const processApprovals = async () => {
+            const approvedIncidents = useSimulationStore.getState().incidents.filter(
+                i => i.auth_status === "APPROVED" && !handledAuthIds.current.has(i.id)
+            );
+
+            for (const inc of approvedIncidents) {
+                handledAuthIds.current.add(inc.id);
+                addLog(`[${time}s] [PROTOCOL ZERO] ✅ Authorization Verified for ${inc.id}. Resuming...`);
+
+                try {
+                    const processed = await coordinateIncident({ ...inc, auth_status: "APPROVED" });
+                    updateIncident(inc.id, processed);
+                    addLog(`[${time}s] [LOGISTICS] Action Execution Resumed.`);
+                } catch (e) {
+                    console.error("Error resuming approved incident", e);
+                }
+            }
+        };
+
+        processApprovals();
+    }, [time, isPlaying, updateIncident, addLog]); // Time dependency ensures periodic check
 
     // PROTOCOL ZERO: Timeout Monitor
     useEffect(() => {
@@ -550,23 +601,14 @@ export function useDisasterSimulation() {
 
             for (const inc of pendingAuthIncidents) {
                 if (inc.auth_timeout_at && time >= inc.auth_timeout_at) {
-                    // TIMEOUT REACHED -> FAIL OPEN (AUTO-APPROVE) as requested
+                    // TIMEOUT REACHED -> FAIL OPEN (AUTO-APPROVE)
                     addLog(`[${time}s] [PROTOCOL ZERO] ⚠️ TIMEOUT on ${inc.id}. AUTO-APPROVING action...`);
 
-                    // Update Local State
+                    // Update Local State - Executor Effect will pick this up
                     updateIncident(inc.id, {
                         auth_status: "APPROVED",
                         reasoning_trace: inc.reasoning_trace + " [AUTO-APPROVED BY SYSTEM TIMEOUT]"
                     });
-
-                    // Re-run Logistics to "Unpause" it
-                    try {
-                        const processed = await coordinateIncident({ ...inc, auth_status: "APPROVED" });
-                        updateIncident(inc.id, processed);
-                        addLog(`[${time}s] [LOGISTICS] Action Execution Resumed.`);
-                    } catch (e) {
-                        console.error("Error resuming auto-approved incident", e);
-                    }
                 }
             }
         };

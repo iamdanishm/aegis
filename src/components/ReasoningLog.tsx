@@ -133,7 +133,9 @@ export function ReasoningLog({ className }: { className?: string }) {
         activeModel,
         isVoiceProcessing,
         spotlightId,
-        processingBatch
+        processingBatch,
+        updateIncident,
+        time
     } = useSimulationStore();
     const scrollRef = useRef<HTMLDivElement>(null);
     const thoughtsRef = useRef<HTMLDivElement>(null);
@@ -147,16 +149,32 @@ export function ReasoningLog({ className }: { className?: string }) {
         }
     }, [logs]);
 
-    // Find the latest active incident with a reasoning trace
-    const latestTriaged = incidents
-        .slice()
-        .reverse()
-        .find(i => i.reasoning_trace && (i.status === "TRIAGED" || i.status === "RESOLVED" || i.status === "ANALYZING"));
+
 
     // Check if there's an incident currently being analyzed (prioritize spotlight), or fallback to first pending
     const pendingIncident = (spotlightId ? incidents.find(i => i.id === spotlightId) : null) ||
         incidents.find(i => i.status === "ANALYZING") ||
         incidents.find(i => i.status === "PENDING");
+
+    // Get spotlight incident and background incidents from batch
+    const heroIncident = spotlightId ? incidents.find(i => i.id === spotlightId) : null;
+
+    // PROTOCOL ZERO: Check for blocking authorization events
+    const activeAuthIncident = incidents.find(i => i.auth_status === "PENDING");
+
+    // Find the latest active incident with a reasoning trace
+    // PRIORITY: Active Auth Incident -> Latest processed incident
+    const latestTriaged = activeAuthIncident || incidents
+        .slice()
+        .reverse()
+        .find(i => i.reasoning_trace && (i.status === "TRIAGED" || i.status === "RESOLVED" || i.status === "ANALYZING"));
+
+    // Show only background incidents (exclude Hero since it's shown in AI Reasoning)
+    const backgroundIncidents = processingBatch
+        .filter(id => id !== spotlightId)
+        .map(id => incidents.find(i => i.id === id))
+        .filter(Boolean);
+    const isParallelProcessing = processingBatch.length > 1;
 
     // Auto-scroll thoughts
     useEffect(() => {
@@ -164,15 +182,6 @@ export function ReasoningLog({ className }: { className?: string }) {
             thoughtsRef.current.scrollTop = thoughtsRef.current.scrollHeight;
         }
     }, [rawThinkingProcess, latestTriaged, pendingIncident, displayLogs]);
-
-    // Get spotlight incident and background incidents from batch
-    const heroIncident = spotlightId ? incidents.find(i => i.id === spotlightId) : null;
-    // Show only background incidents (exclude Hero since it's shown in AI Reasoning)
-    const backgroundIncidents = processingBatch
-        .filter(id => id !== spotlightId)
-        .map(id => incidents.find(i => i.id === id))
-        .filter(Boolean);
-    const isParallelProcessing = processingBatch.length > 1;
 
     return (
         <div className={cn("flex flex-col gap-2 p-4 bg-zinc-950 border border-zinc-800 rounded-lg h-full font-mono text-xs", className)}>
@@ -429,26 +438,64 @@ export function ReasoningLog({ className }: { className?: string }) {
                         </div>
                     </div>
 
-                    {/* Signature Footer */}
-                    {!pendingIncident && latestTriaged && (
-                        <div className="mt-2 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-zinc-600">Priority:</span>
-                                <span className={cn(
-                                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                                    latestTriaged.priority === "CRITICAL" && "bg-red-500/20 text-red-400",
-                                    latestTriaged.priority === "HIGH" && "bg-orange-500/20 text-orange-400",
-                                    latestTriaged.priority === "MEDIUM" && "bg-yellow-500/20 text-yellow-400",
-                                    latestTriaged.priority === "LOW" && "bg-emerald-500/20 text-emerald-400",
-                                )}>
-                                    {latestTriaged.priority}
+                    {/* Signature Footer or Auth Action */}
+                    {(!pendingIncident && latestTriaged?.auth_status === "PENDING") ? (
+                        <div className="mt-4 pt-3 border-t border-red-500/30 bg-red-950/10 p-3 rounded-lg border border-red-500/20 animate-pulse-slow">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
+                                    <h4 className="text-red-400 font-bold uppercase text-[11px] tracking-widest">
+                                        Protocol Zero: Authorization Required
+                                    </h4>
+                                </div>
+                                <span className="text-red-400 font-mono text-[10px]">
+                                    {Math.max(0, (latestTriaged.auth_timeout_at || 0) - time).toFixed(1)}s
                                 </span>
                             </div>
-                            <div className="text-[8px] text-zinc-700 font-mono flex items-center gap-1">
-                                <span className="w-1 h-1 bg-emerald-500 rounded-full" />
-                                {latestTriaged.thought_signature ? "HMAC-256 Audit Token" : "SIG-VERIFIED"}
+
+                            <div className="text-[10px] text-red-300/80 mb-3 italic">
+                                &gt; High-risk intervention pattern detected.
+                                <br />
+                                &gt; Automated execution paused pending human confirmations.
                             </div>
+
+                            {/* Progress Bar */}
+                            <div className="h-1 bg-red-900/50 rounded-full overflow-hidden mb-3">
+                                <div
+                                    className="h-full bg-red-500 transition-all duration-100 ease-linear"
+                                    style={{ width: `${(Math.max(0, (latestTriaged.auth_timeout_at || 0) - time) / 30) * 100}%` }}
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => updateIncident(latestTriaged.id, { auth_status: "APPROVED" })}
+                                className="w-full bg-red-500 hover:bg-red-400 text-white font-bold text-[10px] py-2 rounded uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Target className="w-3 h-3" />
+                                Authorize Protocol Zero
+                            </button>
                         </div>
+                    ) : (
+                        !pendingIncident && latestTriaged && (
+                            <div className="mt-2 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9px] text-zinc-600">Priority:</span>
+                                    <span className={cn(
+                                        "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                                        latestTriaged.priority === "CRITICAL" && "bg-red-500/20 text-red-400",
+                                        latestTriaged.priority === "HIGH" && "bg-orange-500/20 text-orange-400",
+                                        latestTriaged.priority === "MEDIUM" && "bg-yellow-500/20 text-yellow-400",
+                                        latestTriaged.priority === "LOW" && "bg-emerald-500/20 text-emerald-400",
+                                    )}>
+                                        {latestTriaged.priority}
+                                    </span>
+                                </div>
+                                <div className="text-[8px] text-zinc-700 font-mono flex items-center gap-1">
+                                    <span className="w-1 h-1 bg-emerald-500 rounded-full" />
+                                    {latestTriaged.thought_signature ? "HMAC-256 Audit Token" : "SIG-VERIFIED"}
+                                </div>
+                            </div>
+                        )
                     )}
                 </div>
             ) : (

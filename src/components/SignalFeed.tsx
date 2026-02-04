@@ -170,9 +170,11 @@ export function SignalFeed({ className }: { className?: string }) {
 
                 {/* Group incidents by status */}
                 {(() => {
-                    const analyzing = incidents.filter(i => i.status === "ANALYZING");
-                    const pending = incidents.filter(i => i.status === "PENDING");
-                    const processed = incidents.filter(i => i.status !== "ANALYZING" && i.status !== "PENDING");
+                    // Group incidents by status
+                    // Auth Pending incidents are technically "Analysis Paused" but should be shown as active/attention needed
+                    const analyzing = incidents.filter(i => i.status === "ANALYZING" || i.auth_status === "PENDING");
+                    const pending = incidents.filter(i => i.status === "PENDING" && i.auth_status !== "PENDING");
+                    const processed = incidents.filter(i => i.status !== "ANALYZING" && i.status !== "PENDING" && i.auth_status !== "PENDING");
 
                     // Render a single incident card
                     const renderCard = (incident: Incident) => {
